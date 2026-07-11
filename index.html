@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RMRN Super Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0f1a;
+      --surface: #131929;
+      --surface2: #1a2236;
+      --border: #232f45;
+      --accent: #3b82f6;
+      --accent-dim: #1d3557;
+      --green: #22c55e;
+      --green-dim: #14532d;
+      --red: #ef4444;
+      --red-dim: #450a0a;
+      --yellow: #f59e0b;
+      --yellow-dim: #451a03;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    html {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+    body {
+      font-family: 'Inter', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    /* ── CONNECT SCREEN ── */
+    #connectScreen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .connect-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 460px;
+    }
+    .connect-logo {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .connect-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .connect-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', monospace;
+      font-size: 13px;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .field input::placeholder { color: var(--text-muted); }
+    .btn-connect {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      margin-top: 4px;
+      transition: opacity 0.2s;
+    }
+    .btn-connect:hover { opacity: 0.88; }
+    .connect-err {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--red);
+      text-align: center;
+      display: none;
+    }
+
+    /* ── MAIN ADMIN ── */
+    #adminScreen { display: none; min-height: 100vh; flex-direction: column; }
+
+    /* Topbar */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-logo {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .topbar-sep { color: var(--border); flex-shrink: 0; }
+    .topbar-label { font-size: 12px; color: var(--text-muted); font-weight: 500; flex-shrink: 0; }
+    .topbar-conn {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+    .conn-dot {
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .btn-disconnect {
+      margin-left: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .btn-disconnect:hover { border-color: var(--red); color: var(--red); }
+
+    @media (max-width: 700px) {
+      .topbar { padding: 0 12px; gap: 8px; }
+      .topbar-sep, .topbar-label { display: none; }
+      .topbar-conn span:not(.conn-dot) { display: none; }
+      .btn-disconnect { margin-left: 6px; padding: 4px 8px; font-size: 10px; }
+      .topbar-tabs { margin-left: 4px; }
+      .topbar-tab { padding: 5px 10px; font-size: 11.5px; }
+    }
+    @media (max-width: 480px) {
+      .topbar { padding: 0 8px; }
+      .topbar-logo { font-size: 10px; letter-spacing: 2px; }
+    }
+
+    /* Topbar tabs */
+    .topbar-tabs {
+      display: flex;
+      gap: 4px;
+      margin-left: 20px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      min-width: 0;
+      flex-shrink: 1;
+    }
+    .topbar-tabs::-webkit-scrollbar { display: none; }
+    .topbar-tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .topbar-tab:hover { color: var(--text); }
+    .topbar-tab.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    /* 3D Kreator tab */
+    .model3d-main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      width: 100%;
+    }
+    .model3d-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .model3d-filter {
+      display: flex;
+      gap: 6px;
+    }
+    .model3d-filter-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s;
+    }
+    .model3d-filter-btn:hover { border-color: var(--accent); color: var(--text); }
+    .model3d-filter-btn.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .model3d-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .model3d-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .model3d-row:last-child { border-bottom: none; }
+    .model3d-thumb-admin {
+      width: 52px; height: 52px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .model3d-thumb-admin img { width: 100%; height: 100%; object-fit: cover; }
+    .model3d-info { flex: 1; min-width: 0; }
+    .model3d-key {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .model3d-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .model3d-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .model3d-badge.pending { background: var(--yellow-dim); color: var(--yellow); }
+    .model3d-badge.validated { background: var(--green-dim); color: var(--green); }
+    .model3d-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-approve { background: var(--green); color: #fff; }
+    .btn-reject  { background: var(--red); color: #fff; }
+    .btn-glb-link {
+      background: var(--surface2);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      .model3d-main { padding: 20px 16px; }
+      .model3d-toolbar { gap: 10px; }
+      .model3d-filter { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .model3d-filter-btn { flex-shrink: 0; padding: 6px 12px; font-size: 11.5px; }
+      .model3d-row { flex-wrap: wrap; padding: 12px 14px; }
+      .model3d-info { flex-basis: calc(100% - 66px); }
+      .model3d-actions { flex-basis: 100%; justify-content: flex-end; margin-top: 8px; }
+    }
+
+    /* Pesanan tab (reuses model3d-* layout classes, own badge/thumb colors) */
+    .order-thumb-admin {
+      width: 52px; height: 52px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .order-thumb-admin img { width: 100%; height: 100%; object-fit: cover; }
+    .order-code {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .order-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .order-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .order-badge.pending { background: var(--yellow-dim); color: var(--yellow); }
+    .order-badge.paid { background: var(--green-dim); color: var(--green); }
+
+    /* PIN modal */
+    .pin-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 700;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .pin-modal.show { display: flex; }
+    .pin-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 26px;
+      width: 100%;
+      max-width: 340px;
+    }
+    .pin-box-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .pin-box-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+    .pin-box input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 18px;
+      letter-spacing: 6px;
+      text-align: center;
+      margin-bottom: 10px;
+      font-family: 'Inter', monospace;
+    }
+    .pin-box input:focus { outline: none; border-color: var(--accent); }
+    .pin-box-err { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 8px; }
+    .pin-box-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .pin-box-actions .btn { flex: 1; }
+
+    /* Main content area */
+    .main-content {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      width: 100%;
+    }
+
+    /* Search bar */
+    .search-section {
+      margin-bottom: 28px;
+    }
+    .search-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .user-search-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .user-search-bar input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', monospace;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    .user-search-bar input:focus { outline: none; border-color: var(--accent); }
+    .user-search-bar input::placeholder { color: var(--text-muted); }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      transition: opacity 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost   { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state .es-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* User results list */
+    .users-results-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .results-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface2);
+    }
+    .user-list-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .user-list-row:last-child { border-bottom: none; }
+    .user-list-row:hover { background: var(--surface2); }
+    .user-list-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-list-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-list-uid  { margin-left: auto; font-size: 11px; font-family: monospace; color: var(--text-muted); white-space: nowrap; }
+
+    /* User avatar */
+    .user-avatar {
+      width: 36px; height: 36px;
+      background: var(--accent-dim);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* User detail card */
+    .user-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .user-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .user-card-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-card-fullname {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .user-card-email-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .user-card-uid {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+      background: var(--bg);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .user-card-uid:hover { border-color: var(--accent); color: var(--accent); }
+
+    .user-card-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    @media (max-width: 600px) {
+      .user-card-body { grid-template-columns: 1fr; }
+    }
+    .user-section {
+      padding: 18px 20px;
+    }
+    .user-section + .user-section {
+      border-left: 1px solid var(--border);
+    }
+    @media (max-width: 600px) {
+      .user-section + .user-section { border-left: none; border-top: 1px solid var(--border); }
+    }
+    .user-section-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .user-field {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      align-items: flex-start;
+    }
+    .user-field-label {
+      color: var(--text-muted);
+      min-width: 68px;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+    .user-field-val {
+      color: var(--text);
+      font-weight: 500;
+      word-break: break-word;
+    }
+    .user-field-val.empty { color: var(--text-muted); font-style: italic; font-weight: 400; }
+
+    .user-photos-section {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .user-photos-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .user-photos-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .user-photo-thumb {
+      width: 80px; height: 80px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      object-fit: cover;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+      background: var(--bg);
+    }
+    .user-photo-thumb:hover { transform: scale(1.04); border-color: var(--accent); }
+    .user-photo-empty {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Photo lightbox */
+    .photo-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 600;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-lightbox.show { display: flex; }
+    .photo-lightbox img {
+      max-width: 90vw;
+      max-height: 85vh;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px; right: 24px;
+      font-size: 28px;
+      color: #fff;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.8;
+    }
+    .lightbox-close:hover { opacity: 1; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--green);
+      color: #fff;
+      padding: 11px 18px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.err  { background: var(--red); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    @media (max-width: 600px) {
+      .main-content { padding: 20px 16px; }
+    }
+
+    /* ── EDIT FORM ── */
+    .edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+    }
+    @media (max-width: 600px) { .edit-grid { grid-template-columns: 1fr; } }
+    .edit-field { display: flex; flex-direction: column; gap: 4px; }
+    .edit-field label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .edit-field input, .edit-field textarea, .edit-field select {
+      padding: 8px 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', monospace;
+      font-size: 13px;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .edit-field textarea { min-height: 72px; resize: vertical; }
+    .edit-field input:focus, .edit-field textarea:focus, .edit-field select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .edit-actions {
+      display: flex; gap: 8px; align-items: center;
+      margin-top: 14px; flex-wrap: wrap;
+    }
+    .btn-save {
+      padding: 8px 20px; background: var(--green); color: #fff;
+      border: none; border-radius: var(--radius); font-size: 13px;
+      font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: opacity 0.2s;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-cancel-edit {
+      padding: 8px 14px; background: none; border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 13px; color: var(--text-muted);
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .btn-cancel-edit:hover { border-color: var(--red); color: var(--red); }
+    .section-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .store-status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .store-status-badge.active { background: var(--green-dim); color: var(--green); }
+    .store-status-badge.inactive { background: var(--red-dim); color: var(--red); }
+
+    /* ── PRODUCTS TABLE ── */
+    .products-section {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .products-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+    }
+    .products-title {
+      font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .product-row {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+    .product-row-header {
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      justify-content: space-between;
+    }
+    .product-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .product-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .product-active-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .product-active-badge.on { background: var(--green-dim); color: var(--green); }
+    .product-active-badge.off { background: var(--red-dim); color: var(--red); }
+    .product-expand-body { display: none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .product-expand-body.open { display: block; }
+    .edit-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 600px) { .edit-grid-3 { grid-template-columns: 1fr; } }
+    /* ── SIDEBAR ── */
+    .admin-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 52px);
+    }
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .sidebar-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .sidebar-count {
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg);
+      padding: 2px 7px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .sidebar-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .sidebar-item:hover { background: var(--surface2); }
+    .sidebar-item.active { background: var(--accent-dim); border-left: 2px solid var(--accent); }
+    .sidebar-avatar {
+      width: 28px; height: 28px;
+      background: var(--surface2);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .sidebar-item.active .sidebar-avatar { background: var(--accent-dim); }
+    .sidebar-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-email {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-live-dot {
+      width: 5px; height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: pulse 2s infinite;
+    }
+    .sidebar-empty {
+      padding: 24px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .main-panel {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .sidebar-drag-handle {
+      display: none;
+    }
+    @media (max-width: 700px) {
+      .sidebar { width: 180px; }
+    }
+    @media (max-width: 600px) {
+      .admin-body { flex-direction: column; height: auto; min-height: calc(100vh - 52px); }
+      .sidebar {
+        width: 100%;
+        max-height: 160px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        position: relative;
+      }
+      .main-panel { overflow-y: visible; }
+      .sidebar-drag-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 6px 0;
+        cursor: ns-resize;
+        touch-action: none;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-drag-handle::after {
+        content: '';
+        width: 36px;
+        height: 4px;
+        border-radius: 3px;
+        background: var(--border);
+      }
+      .sidebar-drag-handle:active::after { background: var(--accent); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── CONNECT SCREEN ── -->
+<div id="connectScreen">
+  <div class="connect-box">
+    <div class="connect-logo">RMRN</div>
+    <div class="connect-title">Super Admin</div>
+    <div class="connect-sub">Masukkan Email &amp; Password Admin</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="inputEmail" placeholder="admin@rmrn.store" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="inputPassword" placeholder="Password admin" autocomplete="current-password" />
+    </div>
+    <button class="btn-connect" onclick="doConnect()">🔐 Sambungkan</button>
+    <div class="connect-err" id="connectErr"></div>
+  </div>
+</div>
+
+<!-- ── ADMIN SCREEN ── -->
+<div id="adminScreen" style="display:none; flex-direction:column;">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-logo">RMRN</span>
+    <span class="topbar-sep">|</span>
+    <span class="topbar-label">Super Admin</span>
+    <div class="topbar-tabs">
+      <button class="topbar-tab active" id="tabBtnProfil" onclick="switchAdminTab('profil')">Profil &amp; Toko</button>
+      <button class="topbar-tab" id="tabBtnModel3d" onclick="switchAdminTab('model3d')">3D Kreator</button>
+      <button class="topbar-tab" id="tabBtnPesanan" onclick="switchAdminTab('pesanan')">Pesanan</button>
+    </div>
+    <div class="topbar-conn">
+      <div class="conn-dot"></div>
+      <span id="connLabel">Connected</span>
+    </div>
+    <button class="btn-disconnect" style="margin-right:8px" onclick="openPinSetupModal()">🔑 Ganti PIN</button>
+    <button class="btn-disconnect" onclick="doDisconnect()">Disconnect</button>
+  </div>
+
+  <!-- Body: sidebar + main -->
+  <div class="admin-body" id="tabProfil">
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="mobileSidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Profil</span>
+        <span class="sidebar-count" id="sidebarCount">0</span>
+      </div>
+      <div class="sidebar-list" id="sidebarList">
+        <div class="sidebar-empty">Memuat...</div>
+      </div>
+      <div class="sidebar-drag-handle" id="sidebarDragHandle" title="Tarik buat resize"></div>
+    </div>
+
+    <!-- Main panel -->
+    <div class="main-panel">
+      <div class="main-content">
+
+        <!-- Search -->
+        <div class="search-section">
+          <div class="search-section-title">Cari User</div>
+          <div class="user-search-bar">
+            <input id="userSearchInput"
+              placeholder="🔍 Cari berdasarkan UID, nama, atau email..."
+              oninput="onUserSearch(this.value)"
+              onkeydown="if(event.key==='Enter') doUserSearch()" />
+            <button class="btn btn-primary" onclick="doUserSearch()">Cari</button>
+            <button class="btn btn-ghost" onclick="clearSearch()">✕</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="userResultsArea">
+          <div class="empty-state">
+            <div class="es-icon">🔍</div>
+            <p>Ketik nama, email, atau UID untuk mulai mencari.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 3D Kreator tab -->
+  <div id="tab3DKreator" style="display:none;">
+    <div class="model3d-main">
+      <div class="model3d-toolbar">
+        <div class="model3d-filter">
+          <button class="model3d-filter-btn active" id="m3dFilterPending" onclick="setModel3dFilter('pending')">⏳ Menunggu</button>
+          <button class="model3d-filter-btn" id="m3dFilterValidated" onclick="setModel3dFilter('validated')">✅ Tervalidasi</button>
+          <button class="model3d-filter-btn" id="m3dFilterAll" onclick="setModel3dFilter('all')">Semua</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadModel3dList()">↻ Refresh</button>
+      </div>
+      <div id="model3dListArea">
+        <div class="empty-state">
+          <div class="es-icon">📦</div>
+          <p>Memuat daftar model...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pesanan tab -->
+  <div id="tabPesanan" style="display:none;">
+    <div class="model3d-main">
+      <div class="model3d-toolbar">
+        <div class="model3d-filter">
+          <button class="model3d-filter-btn active" id="ordFilterPending" onclick="setOrdersFilter('pending')">⏳ Menunggu</button>
+          <button class="model3d-filter-btn" id="ordFilterPaid" onclick="setOrdersFilter('paid')">✅ Approved</button>
+          <button class="model3d-filter-btn" id="ordFilterAll" onclick="setOrdersFilter('all')">Semua</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadOrders()">↻ Refresh</button>
+      </div>
+      <div id="orderListArea">
+        <div class="empty-state">
+          <div class="es-icon">🧾</div>
+          <p>Memuat daftar pesanan...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PIN confirm/setup modal -->
+<div class="pin-modal" id="pinModal">
+  <div class="pin-box">
+    <div class="pin-box-title" id="pinModalTitle">Masukkan PIN Admin</div>
+    <div class="pin-box-sub" id="pinModalSub">Konfirmasi approve pembayaran.</div>
+    <input type="password" id="pinModalInput1" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" />
+    <input type="password" id="pinModalInput2" inputmode="numeric" maxlength="6" placeholder="Ulangi PIN baru" autocomplete="off" style="display:none;" />
+    <input type="password" id="pinModalInput3" inputmode="numeric" maxlength="6" placeholder="Ulangi PIN baru" autocomplete="off" style="display:none;" />
+    <div class="pin-box-err" id="pinModalErr"></div>
+    <div class="pin-box-actions">
+      <button class="btn btn-ghost" onclick="closePinModal()">Batal</button>
+      <button class="btn btn-primary" onclick="submitPinModal()">Konfirmasi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="photo-lightbox" id="photoLightbox" onclick="closeLightbox()">
+  <span class="lightbox-close" onclick="closeLightbox()">✕</span>
+  <img id="lightboxImg" src="" alt="foto" />
+</div>
+
+<div id="toast"></div>
+
+
+<script>
+var db = null;
+var adminEmail = '';
+var searchTimeout = null;
+
+// ── Bootstrap client: HANYA buat panggil RPC verify_super_admin_login. ──
+// Ini anon key (bukan service key!), aman di-embed karena tabel super_admin
+// deny-all lewat RLS — cuma bisa diakses via RPC security definer.
+// GANTI value ini dengan anon key project utama lu.
+var SUPER_ADMIN_BOOTSTRAP_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1cmVicmdqdmJva3Z2aXFsZ3FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDY2MzYsImV4cCI6MjA5NjcyMjYzNn0.8LMeQs-hshtymrH5t86CAo-3OrQO45_p07YMFRv_vrI';
+
+// URL project utama (dulu diinput manual, sekarang di-hardcode karena login pakai Email+PIN).
+// GANTI value ini dengan URL project Supabase utama lu (yang cocok sama anon key di atas).
+var SUPER_ADMIN_PROJECT_URL = 'https://uurebrgjvbokvviqlgqr.supabase.co';
+
+// Session-only (hilang kalau reload/disconnect) — TIDAK disimpan di localStorage
+var sessionAdminId = null;
+var sessionPinHash = null;
+
+// ── Client kedua: project Supabase khusus model_registry (beda dari project utama) ──
+var MODEL3D_SB_URL = 'https://scotcbiopwkackhbrpka.supabase.co';
+var MODEL3D_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjb3RjYmlvcHdrYWNraGJycGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzMTAwMzAsImV4cCI6MjA5Njg4NjAzMH0.Bzen7AZttmVWJdX8U-mwbwxEIRm2h3lw3wxxAtkwR_M';
+var db3d = supabase.createClient(MODEL3D_SB_URL, MODEL3D_SB_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+
+// ── CONNECT ──
+async function doConnect() {
+  var email    = document.getElementById('inputEmail').value.trim();
+  var password = document.getElementById('inputPassword').value;
+  var errEl    = document.getElementById('connectErr');
+  errEl.style.display = 'none';
+
+  if (!email || !password) {
+    errEl.textContent = 'Email dan Password harus diisi.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    var bootstrap = supabase.createClient(SUPER_ADMIN_PROJECT_URL, SUPER_ADMIN_BOOTSTRAP_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    var pwHash = await sha256Hex(password);
+    var { data, error } = await bootstrap.rpc('verify_super_admin_login', { p_email: email, p_password_hash: pwHash });
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Email atau password salah.');
+
+    db = supabase.createClient(SUPER_ADMIN_PROJECT_URL, data.db_key, { auth: { persistSession: false, autoRefreshToken: false } });
+    adminEmail = data.email;
+    sessionAdminId = data.id;
+    sessionPinHash = data.pin_hash;
+
+    document.getElementById('connLabel').textContent = adminEmail;
+    document.getElementById('connectScreen').style.display = 'none';
+    document.getElementById('adminScreen').style.display = 'flex';
+    document.getElementById('userSearchInput').focus();
+    initSidebar();
+  } catch(e) {
+    errEl.textContent = 'Gagal koneksi: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function doDisconnect() {
+  if (sidebarChannel) { db.removeChannel(sidebarChannel); sidebarChannel = null; }
+  sidebarProfiles = [];
+  activeSidebarUID = null;
+  db = null;
+  adminEmail = '';
+  sessionAdminId = null;
+  sessionPinHash = null;
+  document.getElementById('adminScreen').style.display = 'none';
+  document.getElementById('connectScreen').style.display = 'flex';
+  document.getElementById('inputPassword').value = '';
+  clearSearch();
+}
+
+// ── TOAST ──
+function toast(msg, err) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = err ? 'show err' : 'show';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.className = ''; }, 4000);
+}
+
+// ── ESCAPE ──
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function isValidUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+var sidebarChannel = null;
+var sidebarProfiles = [];
+var activeSidebarUID = null;
+
+async function initSidebar() {
+  await loadSidebar();
+
+  // Realtime subscribe ke profiles
+  if (sidebarChannel) db.removeChannel(sidebarChannel);
+  sidebarChannel = db.channel('sidebar-profiles')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, function(payload) {
+      handleSidebarChange(payload);
+    })
+    .subscribe();
+}
+
+async function loadSidebar() {
+  var { data, error } = await db.from('profiles')
+    .select('id, full_name, store_name, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  if (error) { console.warn('sidebar error:', error.message); document.getElementById('sidebarList').innerHTML = '<div class="sidebar-empty">Error: ' + error.message + '</div>'; return; }
+  sidebarProfiles = data || [];
+  renderSidebar();
+}
+
+function renderSidebar() {
+  var list = document.getElementById('sidebarList');
+  var count = document.getElementById('sidebarCount');
+  if (!list) return;
+  count.textContent = sidebarProfiles.length;
+  if (!sidebarProfiles.length) {
+    list.innerHTML = '<div class="sidebar-empty">Belum ada profil.</div>';
+    return;
+  }
+  list.innerHTML = sidebarProfiles.map(function(p) {
+    var name = p.full_name || p.store_name || '(tanpa nama)';
+    var sub = p.store_name && p.full_name ? p.store_name : p.id.slice(0,8) + '…';
+    var isActive = activeSidebarUID === p.id;
+    return '<div class="sidebar-item' + (isActive ? ' active' : '') + '" onclick="sidebarClick(\'' + p.id + '\')" id="sb-' + p.id + '">' +
+      '<div class="sidebar-avatar">👤</div>' +
+      '<div style="min-width:0;flex:1">' +
+        '<div class="sidebar-name">' + esc(name) + '</div>' +
+        '<div class="sidebar-email">' + esc(sub) + '</div>' +
+      '</div>' +
+      '<div class="sidebar-live-dot" style="opacity:0;transition:opacity 0.3s" id="sb-dot-' + p.id + '"></div>' +
+    '</div>';
+  }).join('');
+}
+
+function sidebarClick(uid) {
+  activeSidebarUID = uid;
+  document.querySelectorAll('.sidebar-item').forEach(function(el) { el.classList.remove('active'); });
+  var el = document.getElementById('sb-' + uid);
+  if (el) el.classList.add('active');
+  showUserDetail(uid, null);
+}
+
+function handleSidebarChange(payload) {
+  var record = payload.new || payload.old;
+  if (!record) return;
+  var uid = record.id;
+  if (payload.eventType === 'DELETE') {
+    sidebarProfiles = sidebarProfiles.filter(function(p){ return p.id !== uid; });
+  } else if (payload.eventType === 'INSERT') {
+    sidebarProfiles.unshift({ id: record.id, full_name: record.full_name, store_name: record.store_name, updated_at: record.updated_at });
+  } else if (payload.eventType === 'UPDATE') {
+    var idx = sidebarProfiles.findIndex(function(p){ return p.id === uid; });
+    if (idx >= 0) {
+      sidebarProfiles[idx] = Object.assign(sidebarProfiles[idx], { full_name: record.full_name, store_name: record.store_name, updated_at: record.updated_at });
+      var dot = document.getElementById('sb-dot-' + uid);
+      if (dot) { dot.style.opacity = '1'; setTimeout(function(){ dot.style.opacity = '0'; }, 3000); }
+    } else {
+      sidebarProfiles.unshift({ id: record.id, full_name: record.full_name, store_name: record.store_name, updated_at: record.updated_at });
+    }
+  }
+  renderSidebar();
+}
+
+// ── SEARCH ──
+function onUserSearch(val) {
+  clearTimeout(searchTimeout);
+  if (!val.trim()) {
+    document.getElementById('userResultsArea').innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><p>Ketik nama, email, atau UID untuk mulai mencari.</p></div>';
+    return;
+  }
+  searchTimeout = setTimeout(doUserSearch, 420);
+}
+
+function clearSearch() {
+  var inp = document.getElementById('userSearchInput');
+  if (inp) { inp.value = ''; inp.focus(); }
+  document.getElementById('userResultsArea').innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><p>Ketik nama, email, atau UID untuk mulai mencari.</p></div>';
+}
+
+async function doUserSearch() {
+  var q = (document.getElementById('userSearchInput').value || '').trim();
+  if (!q) return;
+  var area = document.getElementById('userResultsArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><br>Mencari...</div>';
+
+  try {
+    var results = [];
+    var profileMap = {};
+    var uuidMode = isValidUUID(q);
+
+    if (uuidMode) {
+      // Cari langsung by UUID di profiles
+      var { data: byId } = await db.from('profiles')
+        .select('*')
+        .eq('id', q)
+        .limit(1);
+      if (byId && byId.length) {
+        profileMap[q] = byId[0];
+      }
+      // Tetap tampilkan detail meski profil kosong — UID valid cukup
+      showUserDetail(q, profileMap[q] || null);
+      return;
+    } else {
+      // Cari by nama atau email di profiles
+      var { data: byText } = await db.from('profiles')
+        .select('*')
+        .or('full_name.ilike.%' + q + '%,email.ilike.%' + q + '%')
+        .limit(20);
+      if (byText && byText.length) {
+        byText.forEach(function(p) {
+          profileMap[p.id] = p;
+          results.push({ uid: p.id, email: p.email, full_name: p.full_name });
+        });
+      }
+    }
+
+    if (!results.length) {
+      area.innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><p>Tidak ditemukan user dengan kata kunci tersebut.</p></div>';
+      return;
+    }
+
+    // Langsung tampilkan detail jika hanya 1 result
+    if (results.length === 1) {
+      showUserDetail(results[0].uid, profileMap[results[0].uid]);
+      return;
+    }
+
+    // List hasil
+    var html = '<div class="users-results-list"><div class="results-header">Ditemukan <b>' + results.length + '</b> user — klik untuk lihat detail</div>';
+    results.forEach(function(r) {
+      var p = profileMap[r.uid] || {};
+      var name = p.full_name || r.full_name || (r.meta && r.meta.full_name) || '(tanpa nama)';
+      var email = p.email || r.email || '—';
+      html += '<div class="user-list-row" onclick="showUserDetail(\'' + r.uid + '\', null)">' +
+        '<div class="user-avatar">👤</div>' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="user-list-name">' + esc(name) + '</div>' +
+          '<div class="user-list-sub">' + esc(email) + '</div>' +
+        '</div>' +
+        '<div class="user-list-uid">' + r.uid.slice(0,8) + '…</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    area.innerHTML = html;
+
+  } catch(e) {
+    area.innerHTML = '<div class="loading" style="color:var(--red)">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── STATE ──
+var currentUID = null;
+var currentProfile = {};
+var currentProducts = [];
+
+async function showUserDetail(uid, profileData) {
+  currentUID = uid;
+  var area = document.getElementById('userResultsArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><br>Memuat profil...</div>';
+  try {
+    var { data: pd, error: pdErr } = await db.from('profiles')
+      .select('*')
+      .eq('id', uid).single();
+    if (pdErr) console.warn('profiles error:', pdErr.message);
+    currentProfile = pd || {};
+
+    var shop = {};
+    try {
+      var { data: sd } = await db.from('users').select('*').eq('id', uid).single();
+      if (sd) shop = sd;
+    } catch(e) {}
+
+    // Products
+    var { data: prods } = await db.from('seller_products').select('*').eq('seller_id', uid).order('created_at', { ascending: false });
+    currentProducts = prods || [];
+
+    var p = currentProfile;
+    var email = shop.email || '—';
+    var isActive = p.is_active !== false;
+
+    function fv(v) {
+      return v && v !== '—'
+        ? '<span class="user-field-val">' + esc(v) + '</span>'
+        : '<span class="user-field-val empty">—</span>';
+    }
+
+    var productsHTML = renderProductsList(currentProducts);
+
+    area.innerHTML =
+      '<button class="btn btn-ghost btn-sm" onclick="doUserSearch()" style="margin-bottom:14px">← Kembali ke hasil</button>' +
+      '<div class="user-card">' +
+        '<div class="user-card-header">' +
+          '<div class="user-card-name">' +
+            '<div class="user-avatar">👤</div>' +
+            '<div>' +
+              '<div class="user-card-fullname">' + esc(p.full_name || '(tanpa nama)') + '</div>' +
+              '<div class="user-card-email-sub">' + esc(email) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="user-card-uid" onclick="copyUID(\'' + esc(uid) + '\')" title="Klik untuk copy">UID: ' + esc(uid) + '</div>' +
+        '</div>' +
+
+        '<div class="user-card-body">' +
+          // ── PROFIL SECTION ──
+          '<div class="user-section" id="profil-view-' + uid + '">' +
+            '<div class="section-toggle">' +
+              '<div class="user-section-title">📋 Data Diri</div>' +
+              '<button class="btn btn-ghost btn-sm" onclick="showProfilEdit(\'' + uid + '\')">✏️ Edit</button>' +
+            '</div>' +
+            '<div id="profil-fields-' + uid + '">' +
+              '<div class="user-field"><span class="user-field-label">Email</span>' + fv(email) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Phone</span>' + fv(p.phone) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Alamat</span>' + fv(p.address) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kelurahan</span>' + fv(p.village) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kecamatan</span>' + fv(p.district) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kota</span>' + fv(p.city) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Provinsi</span>' + fv(p.province) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kode Pos</span>' + fv(p.postal_code) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Official</span>' + fv(p.is_official ? '✅ Official' : null) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Update</span>' + fv(p.updated_at ? p.updated_at.slice(0,10) : null) + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // ── TOKO SECTION ──
+          '<div class="user-section" id="toko-view-' + uid + '">' +
+            '<div class="section-toggle">' +
+              '<div class="user-section-title">🏪 Data Toko</div>' +
+              '<div style="display:flex;gap:8px;align-items:center">' +
+                '<span id="store-status-badge-' + uid + '" class="store-status-badge ' + (isActive ? 'active' : 'inactive') + '">' +
+                  (isActive ? '● Aktif' : '● Non-aktif') +
+                '</span>' +
+                '<button class="btn btn-ghost btn-sm" onclick="showTokoEdit(\'' + uid + '\')">✏️ Edit</button>' +
+              '</div>' +
+            '</div>' +
+            '<div id="toko-fields-' + uid + '">' +
+              '<div class="user-field"><span class="user-field-label">Nama Toko</span>' + fv(p.store_name) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Phone</span>' + fv(p.store_phone) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Alamat</span>' + fv(p.store_address) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kelurahan</span>' + fv(p.store_village) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kecamatan</span>' + fv(p.store_district) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kota</span>' + fv(p.store_city) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Provinsi</span>' + fv(p.store_province) + '</div>' +
+              '<div class="user-field"><span class="user-field-label">Kode Pos</span>' + fv(p.store_postal_code) + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // ── PRODUK ──
+        '<div class="products-section">' +
+          '<div class="products-header">' +
+            '<div class="products-title">📦 Produk Seller <span style="font-weight:400;font-size:10px;letter-spacing:0">(' + currentProducts.length + ' item)</span></div>' +
+            '<button class="btn btn-primary btn-sm" onclick="showAddProduct(\'' + uid + '\')">+ Tambah Produk</button>' +
+          '</div>' +
+          '<div id="products-list-' + uid + '">' + productsHTML + '</div>' +
+        '</div>' +
+
+      '</div>';
+
+  } catch(e) {
+    area.innerHTML = '<div class="loading" style="color:var(--red)">Gagal memuat detail: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── RENDER PROFIL VIEW ──
+function renderProfilFields(p, email) {
+  function fv(v) {
+    return v ? '<span class="user-field-val">' + esc(v) + '</span>' : '<span class="user-field-val empty">—</span>';
+  }
+  return '<div class="user-field"><span class="user-field-label">Email</span>' + fv(email) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Phone</span>' + fv(p.phone) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Alamat</span>' + fv(p.address) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kelurahan</span>' + fv(p.village) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kecamatan</span>' + fv(p.district) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kota</span>' + fv(p.city) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Provinsi</span>' + fv(p.province) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kode Pos</span>' + fv(p.postal_code) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Official</span>' + fv(p.is_official ? '✅ Official' : null) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Update</span>' + fv(p.updated_at ? p.updated_at.slice(0,10) : null) + '</div>';
+}
+
+// ── EDIT PROFIL ──
+function showProfilEdit(uid) {
+  var p = currentProfile;
+  var el = document.getElementById('profil-fields-' + uid);
+  if (!el) return;
+  el.innerHTML =
+    '<div class="edit-grid" style="margin-top:8px">' +
+      ef('full_name', 'Nama Lengkap', p.full_name) +
+      ef('phone', 'Phone', p.phone) +
+      ef('address', 'Alamat', p.address) +
+      ef('village', 'Kelurahan', p.village) +
+      ef('district', 'Kecamatan', p.district) +
+      ef('city', 'Kota', p.city) +
+      ef('province', 'Provinsi', p.province) +
+      ef('postal_code', 'Kode Pos', p.postal_code) +
+      '<div class="edit-field"><label>Official</label><select id="ef_is_official"><option value="false"' + (!p.is_official ? ' selected' : '') + '>Tidak</option><option value="true"' + (p.is_official ? ' selected' : '') + '>Ya</option></select></div>' +
+    '</div>' +
+    '<div class="edit-actions">' +
+      '<button class="btn-save" onclick="saveProfilEdit(\'' + uid + '\')">💾 Simpan</button>' +
+      '<button class="btn-cancel-edit" onclick="cancelProfilEdit(\'' + uid + '\')">Batal</button>' +
+    '</div>';
+}
+
+async function saveProfilEditActual(uid) {
+  var payload = {
+    full_name:   gv('full_name'),
+    phone:       gv('phone'),
+    address:     gv('address'),
+    village:     gv('village'),
+    district:    gv('district'),
+    city:        gv('city'),
+    province:    gv('province'),
+    postal_code: gv('postal_code'),
+    is_official: document.getElementById('ef_is_official').value === 'true'
+  };
+  var btn = document.querySelector('#profil-fields-' + uid + ' .btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+  try {
+    var { error } = await db.from('profiles').update(payload).eq('id', uid);
+    if (error) throw new Error(error.message);
+    Object.assign(currentProfile, payload);
+    cancelProfilEdit(uid);
+    toast('✅ Data diri disimpan!');
+  } catch(e) {
+    toast('Gagal simpan: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan'; }
+  }
+}
+
+function saveProfilEdit(uid) {
+  openPinModal('confirm', function() { saveProfilEditActual(uid); }, 'Konfirmasi PIN buat menyimpan data diri.');
+}
+
+function cancelProfilEdit(uid) {
+  var p = currentProfile;
+  var el = document.getElementById('profil-fields-' + uid);
+  if (!el) return;
+  el.innerHTML = renderProfilFields(p, '—');
+}
+
+// ── EDIT TOKO ──
+function renderTokoFields(p) {
+  function fv(v) {
+    return v ? '<span class="user-field-val">' + esc(v) + '</span>' : '<span class="user-field-val empty">—</span>';
+  }
+  return '<div class="user-field"><span class="user-field-label">Nama Toko</span>' + fv(p.store_name) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Phone</span>' + fv(p.store_phone) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Alamat</span>' + fv(p.store_address) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kelurahan</span>' + fv(p.store_village) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kecamatan</span>' + fv(p.store_district) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kota</span>' + fv(p.store_city) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Provinsi</span>' + fv(p.store_province) + '</div>' +
+    '<div class="user-field"><span class="user-field-label">Kode Pos</span>' + fv(p.store_postal_code) + '</div>';
+}
+
+function showTokoEdit(uid) {
+  var p = currentProfile;
+  var isActive = p.is_active !== false;
+  var el = document.getElementById('toko-fields-' + uid);
+  if (!el) return;
+  el.innerHTML =
+    '<div class="edit-grid" style="margin-top:8px">' +
+      ef('store_name', 'Nama Toko', p.store_name) +
+      ef('store_phone', 'Phone Toko', p.store_phone) +
+      ef('store_address', 'Alamat Toko', p.store_address) +
+      ef('store_village', 'Kelurahan', p.store_village) +
+      ef('store_district', 'Kecamatan', p.store_district) +
+      ef('store_city', 'Kota', p.store_city) +
+      ef('store_province', 'Provinsi', p.store_province) +
+      ef('store_postal_code', 'Kode Pos', p.store_postal_code) +
+      '<div class="edit-field"><label>Status Toko</label><select id="ef_is_active"><option value="true"' + (isActive ? ' selected' : '') + '>✅ Aktif (tampil di rmrn.store)</option><option value="false"' + (!isActive ? ' selected' : '') + '>🔴 Non-aktif (tidak tampil)</option></select></div>' +
+    '</div>' +
+    '<div class="edit-actions">' +
+      '<button class="btn-save" onclick="saveTokoEdit(\'' + uid + '\')">💾 Simpan</button>' +
+      '<button class="btn-cancel-edit" onclick="cancelTokoEdit(\'' + uid + '\')">Batal</button>' +
+    '</div>';
+}
+
+async function saveTokoEditActual(uid) {
+  var payload = {
+    store_name:        gv('store_name'),
+    store_phone:       gv('store_phone'),
+    store_address:     gv('store_address'),
+    store_village:     gv('store_village'),
+    store_district:    gv('store_district'),
+    store_city:        gv('store_city'),
+    store_province:    gv('store_province'),
+    store_postal_code: gv('store_postal_code'),
+    is_active:         document.getElementById('ef_is_active').value === 'true'
+  };
+  var btn = document.querySelector('#toko-fields-' + uid + ' .btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+  try {
+    var { error } = await db.from('profiles').update(payload).eq('id', uid);
+    if (error) throw new Error(error.message);
+    Object.assign(currentProfile, payload);
+    // Update badge
+    var badge = document.getElementById('store-status-badge-' + uid);
+    if (badge) {
+      badge.className = 'store-status-badge ' + (payload.is_active ? 'active' : 'inactive');
+      badge.textContent = payload.is_active ? '● Aktif' : '● Non-aktif';
+    }
+    cancelTokoEdit(uid);
+    toast('✅ Data toko disimpan!');
+  } catch(e) {
+    toast('Gagal simpan: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan'; }
+  }
+}
+
+function saveTokoEdit(uid) {
+  openPinModal('confirm', function() { saveTokoEditActual(uid); }, 'Konfirmasi PIN buat menyimpan data toko.');
+}
+
+function cancelTokoEdit(uid) {
+  var el = document.getElementById('toko-fields-' + uid);
+  if (el) el.innerHTML = renderTokoFields(currentProfile);
+}
+
+// ── PRODUCTS ──
+function renderProductsList(prods) {
+  if (!prods || !prods.length) return '<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">Belum ada produk.</div>';
+  return prods.map(function(pr, i) {
+    var isOn = pr.is_active !== false;
+    return '<div class="product-row" id="prod-row-' + pr.id + '">' +
+      '<div class="product-row-header" onclick="toggleProdExpand(\'' + pr.id + '\')">' +
+        '<div>' +
+          '<div class="product-name">' + esc(pr.name) + '</div>' +
+          '<div class="product-meta">' + esc(pr.category || '—') + ' · Rp ' + (pr.price ? pr.price.toLocaleString('id') : '0') + ' · MOQ ' + (pr.moq || '—') + ' ' + esc(pr.unit || 'pcs') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<span class="product-active-badge ' + (isOn ? 'on' : 'off') + '">' + (isOn ? '● Aktif' : '● Nonaktif') + '</span>' +
+          '<span style="color:var(--text-muted);font-size:12px">▼</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="product-expand-body" id="prod-body-' + pr.id + '">' +
+        renderProductForm(pr, false) +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function toggleProdExpand(id) {
+  var el = document.getElementById('prod-body-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+function renderProductForm(pr, isNew) {
+  var id = pr.id || '__new__';
+  var saveCall = isNew ? 'saveNewProduct(\'' + currentUID + '\')' : 'saveProductEdit(\'' + id + '\')';
+  var cancelCall = isNew ? 'cancelNewProduct()' : 'cancelProductEdit(\'' + id + '\')';
+  var imgPreview = pr.image_url
+    ? '<div style="margin-bottom:14px">' +
+        '<img src="' + esc(pr.image_url) + '" id="prod-img-preview-' + id + '" ' +
+        'style="max-height:160px;max-width:100%;border-radius:var(--radius);border:1px solid var(--border);object-fit:cover;background:var(--bg)" ' +
+        'onerror="this.style.display=\'none\'" />' +
+      '</div>'
+    : '<div style="margin-bottom:14px;display:none" id="prod-img-wrap-' + id + '">' +
+        '<img id="prod-img-preview-' + id + '" src="" ' +
+        'style="max-height:160px;max-width:100%;border-radius:var(--radius);border:1px solid var(--border);object-fit:cover;background:var(--bg)" ' +
+        'onerror="this.style.display=\'none\'" />' +
+      '</div>';
+  return imgPreview +
+  '<div class="edit-grid edit-grid-3" id="prod-form-' + id + '">' +
+    epf(id, 'name', 'Nama Produk', pr.name, 'text', true) +
+    epf(id, 'category', 'Kategori', pr.category) +
+    epf(id, 'slug', 'Slug', pr.slug) +
+    epf(id, 'price', 'Harga (Rp)', pr.price, 'number') +
+    epf(id, 'moq', 'MOQ', pr.moq, 'number') +
+    epf(id, 'unit', 'Unit', pr.unit || 'pcs') +
+    epf(id, 'nego_min', 'Nego Min (Rp)', pr.nego_min, 'number') +
+    epf(id, 'lead_time_days', 'Lead Time (hari)', pr.lead_time_days, 'number') +
+    epf(id, 'whatsapp', 'WhatsApp', pr.whatsapp) +
+    '<div class="edit-field" style="grid-column:1/-1"><label>Image URL</label><input type="text" id="epf_' + id + '_image_url" value="' + esc(pr.image_url || '') + '" oninput="updateImgPreview(\'' + id + '\',this.value)" placeholder="https://..." /></div>' +
+    epf(id, 'tokopedia_url', 'Tokopedia URL', pr.tokopedia_url) +
+    epf(id, 'shopee_url', 'Shopee URL', pr.shopee_url) +
+    epf(id, 'production_method', 'Metode Produksi', pr.production_method) +
+    epf(id, 'sample_price', 'Harga Sample', pr.sample_price, 'number') +
+    epf(id, 'free_revisions', 'Free Revisi', pr.free_revisions, 'number') +
+    '<div class="edit-field"><label>Deskripsi</label><textarea id="epf_' + id + '_description">' + esc(pr.description || '') + '</textarea></div>' +
+    '<div class="edit-field"><label>Tags (koma)</label><input type="text" id="epf_' + id + '_tags" value="' + esc((pr.tags || []).join(', ')) + '" /></div>' +
+    '<div class="edit-field"><label>Status Produk</label><select id="epf_' + id + '_is_active"><option value="true"' + (pr.is_active !== false ? ' selected' : '') + '>✅ Aktif</option><option value="false"' + (pr.is_active === false ? ' selected' : '') + '>🔴 Nonaktif</option></select></div>' +
+    '<div class="edit-field"><label>Official</label><select id="epf_' + id + '_is_official"><option value="false"' + (!pr.is_official ? ' selected' : '') + '>Tidak</option><option value="true"' + (pr.is_official ? ' selected' : '') + '>Ya</option></select></div>' +
+    '<div class="edit-field"><label>Sample Tersedia</label><select id="epf_' + id + '_sample_available"><option value="false"' + (!pr.sample_available ? ' selected' : '') + '>Tidak</option><option value="true"' + (pr.sample_available ? ' selected' : '') + '>Ya</option></select></div>' +
+  '</div>' +
+  '<div class="edit-actions">' +
+    '<button class="btn-save" id="prod-save-btn-' + id + '" onclick="' + saveCall + '">💾 Simpan</button>' +
+    '<button class="btn-cancel-edit" onclick="' + cancelCall + '">Batal</button>' +
+    (!isNew ? '<button class="btn-cancel-edit" style="margin-left:auto;border-color:var(--red);color:var(--red)" onclick="deleteProduct(\'' + id + '\')">🗑 Hapus</button>' : '') +
+  '</div>';
+}
+
+function updateImgPreview(id, url) {
+  var img = document.getElementById('prod-img-preview-' + id);
+  var wrap = document.getElementById('prod-img-wrap-' + id);
+  if (!img) return;
+  if (url && url.trim()) {
+    img.src = url.trim();
+    img.style.display = '';
+    if (wrap) wrap.style.display = '';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    if (wrap) wrap.style.display = 'none';
+  }
+}
+
+function epf(pid, field, label, val, type, full) {
+  var cls = full ? ' style="grid-column:1/-1"' : '';
+  return '<div class="edit-field"' + cls + '><label>' + label + '</label><input type="' + (type||'text') + '" id="epf_' + pid + '_' + field + '" value="' + esc(val || '') + '" /></div>';
+}
+function ef(field, label, val) {
+  return '<div class="edit-field"><label>' + label + '</label><input type="text" id="ef_' + field + '" value="' + esc(val || '') + '" /></div>';
+}
+function gv(field) { var el = document.getElementById('ef_' + field); return el ? el.value.trim() || null : null; }
+function gpf(pid, field) { var el = document.getElementById('epf_' + pid + '_' + field); return el ? el.value.trim() : ''; }
+
+function buildProductPayload(id, uid) {
+  return {
+    seller_id:         uid || currentUID,
+    name:              gpf(id, 'name'),
+    category:          gpf(id, 'category') || null,
+    slug:              gpf(id, 'slug') || null,
+    price:             parseInt(gpf(id, 'price')) || 0,
+    moq:               parseInt(gpf(id, 'moq')) || null,
+    unit:              gpf(id, 'unit') || 'pcs',
+    nego_min:          parseInt(gpf(id, 'nego_min')) || null,
+    lead_time_days:    parseInt(gpf(id, 'lead_time_days')) || null,
+    whatsapp:          gpf(id, 'whatsapp') || null,
+    image_url:         gpf(id, 'image_url') || null,
+    tokopedia_url:     gpf(id, 'tokopedia_url') || null,
+    shopee_url:        gpf(id, 'shopee_url') || null,
+    production_method: gpf(id, 'production_method') || null,
+    sample_price:      parseInt(gpf(id, 'sample_price')) || null,
+    free_revisions:    parseInt(gpf(id, 'free_revisions')) || null,
+    description:       (function(){ var el=document.getElementById('epf_'+id+'_description'); return el?el.value.trim()||null:null; })(),
+    tags:              (function(){ var el=document.getElementById('epf_'+id+'_tags'); return el&&el.value.trim()?el.value.split(',').map(function(s){return s.trim();}).filter(Boolean):null; })(),
+    is_active:         (function(){ var el=document.getElementById('epf_'+id+'_is_active'); return el?el.value==='true':true; })(),
+    is_official:       (function(){ var el=document.getElementById('epf_'+id+'_is_official'); return el?el.value==='true':false; })(),
+    sample_available:  (function(){ var el=document.getElementById('epf_'+id+'_sample_available'); return el?el.value==='true':false; })(),
+  };
+}
+
+async function saveProductEditActual(id) {
+  var btn = document.getElementById('prod-save-btn-' + id);
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+  try {
+    var payload = buildProductPayload(id, currentUID);
+    var { data, error } = await db.from('seller_products').update(payload).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    // Update in-memory
+    for (var i = 0; i < currentProducts.length; i++) {
+      if (currentProducts[i].id === id) { currentProducts[i] = data; break; }
+    }
+    // Re-render row
+    var row = document.getElementById('prod-row-' + id);
+    if (row) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderProductsList([data]);
+      row.outerHTML = tmp.innerHTML;
+      toggleProdExpand(id); // re-open
+    }
+    toast('✅ Produk disimpan!');
+  } catch(e) {
+    toast('Gagal: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan'; }
+  }
+}
+
+function saveProductEdit(id) {
+  openPinModal('confirm', function() { saveProductEditActual(id); }, 'Konfirmasi PIN buat menyimpan perubahan produk.');
+}
+
+function cancelProductEdit(id) {
+  var body = document.getElementById('prod-body-' + id);
+  if (!body) return;
+  var pr = currentProducts.find(function(p){ return p.id === id; }) || {};
+  body.innerHTML = renderProductForm(pr, false);
+}
+
+async function deleteProductActual(id) {
+  try {
+    var { error } = await db.from('seller_products').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    currentProducts = currentProducts.filter(function(p){ return p.id !== id; });
+    var row = document.getElementById('prod-row-' + id);
+    if (row) row.remove();
+    toast('🗑 Produk dihapus.');
+  } catch(e) {
+    toast('Gagal hapus: ' + e.message, true);
+  }
+}
+
+function deleteProduct(id) {
+  openPinModal('confirm', function() { deleteProductActual(id); }, '⚠️ Konfirmasi PIN buat menghapus produk ini. Tindakan tidak bisa dibatalkan.');
+}
+
+function showAddProduct(uid) {
+  var listEl = document.getElementById('products-list-' + uid);
+  if (!listEl) return;
+  // Cegah duplikat
+  if (document.getElementById('prod-row-__new__')) return;
+  var newDiv = document.createElement('div');
+  newDiv.className = 'product-row';
+  newDiv.id = 'prod-row-__new__';
+  newDiv.innerHTML =
+    '<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">+ Produk Baru</div>' +
+    '<div class="product-expand-body open">' + renderProductForm({}, true) + '</div>';
+  listEl.prepend(newDiv);
+  newDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function saveNewProductActual(uid) {
+  var btn = document.getElementById('prod-save-btn-__new__');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+  try {
+    var payload = buildProductPayload('__new__', uid);
+    if (!payload.name) throw new Error('Nama produk wajib diisi.');
+    var { data, error } = await db.from('seller_products').insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    currentProducts.unshift(data);
+    cancelNewProduct();
+    // prepend ke list
+    var listEl = document.getElementById('products-list-' + uid);
+    if (listEl) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderProductsList([data]);
+      listEl.prepend(tmp.firstChild);
+    }
+    toast('✅ Produk ditambahkan!');
+  } catch(e) {
+    toast('Gagal: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan'; }
+  }
+}
+
+function saveNewProduct(uid) {
+  openPinModal('confirm', function() { saveNewProductActual(uid); }, 'Konfirmasi PIN buat menambahkan produk baru.');
+}
+
+function cancelNewProduct() {
+  var row = document.getElementById('prod-row-__new__');
+  if (row) row.remove();
+}
+
+function copyUID(uid) {
+  navigator.clipboard.writeText(uid).then(function() {
+    toast('✅ UID disalin ke clipboard!');
+  }).catch(function() {
+    toast('Gagal menyalin UID', true);
+  });
+}
+
+function openLightbox(e, url) {
+  e.stopPropagation();
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('photoLightbox').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('photoLightbox').classList.remove('show');
+}
+
+// ════════════════════════════════════════════════
+// 3D KREATOR — validasi model dari model_registry
+// ════════════════════════════════════════════════
+var model3dList = [];
+var model3dFilter = 'pending';
+
+function switchAdminTab(tab) {
+  document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
+  document.getElementById('tab3DKreator').style.display = tab === 'model3d' ? 'block' : 'none';
+  document.getElementById('tabPesanan').style.display = tab === 'pesanan' ? 'block' : 'none';
+  document.getElementById('tabBtnProfil').classList.toggle('active', tab === 'profil');
+  document.getElementById('tabBtnModel3d').classList.toggle('active', tab === 'model3d');
+  document.getElementById('tabBtnPesanan').classList.toggle('active', tab === 'pesanan');
+  if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
+  if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
+}
+
+function setModel3dFilter(f) {
+  model3dFilter = f;
+  document.getElementById('m3dFilterPending').classList.toggle('active', f === 'pending');
+  document.getElementById('m3dFilterValidated').classList.toggle('active', f === 'validated');
+  document.getElementById('m3dFilterAll').classList.toggle('active', f === 'all');
+  renderModel3dList();
+}
+
+async function loadModel3dList() {
+  var area = document.getElementById('model3dListArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar model...</div></div>';
+  try {
+    var { data, error } = await db3d.from('model_registry')
+      .select('key, label, glb_url, thumb_url, thumb_fallback, creator_name, creator_id, validated, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    model3dList = data || [];
+    renderModel3dList();
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Gagal memuat: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function renderModel3dList() {
+  var area = document.getElementById('model3dListArea');
+  var rows = model3dList.filter(function(m) {
+    if (model3dFilter === 'pending') return !m.validated;
+    if (model3dFilter === 'validated') return !!m.validated;
+    return true;
+  });
+
+  if (rows.length === 0) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">📦</div><p>Tidak ada model di kategori ini.</p></div>';
+    return;
+  }
+
+  area.innerHTML = '<div class="model3d-list">' + rows.map(function(m) {
+    var thumbHtml = m.thumb_url
+      ? '<img src="' + esc(m.thumb_url) + '" alt="" onerror="this.style.display=\'none\'" />'
+      : (m.thumb_fallback || '📦');
+    var date = m.created_at ? new Date(m.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    var badge = m.validated
+      ? '<span class="model3d-badge validated">✅ Tervalidasi</span>'
+      : '<span class="model3d-badge pending">⏳ Menunggu</span>';
+    var actionBtn = m.validated
+      ? '<button class="btn btn-sm btn-reject" onclick="confirmSetModelValidated(\'' + esc(m.key) + '\', false)">Batalkan</button>'
+      : '<button class="btn btn-sm btn-approve" onclick="confirmSetModelValidated(\'' + esc(m.key) + '\', true)">✓ Approve</button>';
+
+    return (
+      '<div class="model3d-row" id="m3d-row-' + esc(m.key) + '">' +
+        '<div class="model3d-thumb-admin">' + thumbHtml + '</div>' +
+        '<div class="model3d-info">' +
+          '<div class="model3d-key">' + esc(m.label || m.key) + '</div>' +
+          '<div class="model3d-meta">' +
+            '<span>key: ' + esc(m.key) + '</span>' +
+            (m.creator_name ? '<span>oleh ' + esc(m.creator_name) + '</span>' : '') +
+            (date ? '<span>' + date + '</span>' : '') +
+            badge +
+          '</div>' +
+        '</div>' +
+        '<div class="model3d-actions">' +
+          (m.glb_url ? '<a class="btn btn-sm btn-glb-link" href="' + esc(m.glb_url) + '" target="_blank" rel="noopener">GLB</a>' : '') +
+          actionBtn +
+        '</div>' +
+      '</div>'
+    );
+  }).join('') + '</div>';
+}
+
+async function setModelValidated(key, value) {
+  try {
+    var { error } = await db3d.from('model_registry').update({ validated: value }).eq('key', key);
+    if (error) throw new Error(error.message);
+    var item = model3dList.find(function(m) { return m.key === key; });
+    if (item) item.validated = value;
+    renderModel3dList();
+    toast(value ? '✅ Model "' + key + '" disetujui!' : '↩ Validasi "' + key + '" dibatalkan.');
+  } catch(e) {
+    toast('Gagal update: ' + e.message, true);
+  }
+}
+
+// model3d key currently pending PIN confirmation
+var pendingModel3dKey = null;
+var pendingModel3dValue = false;
+
+function confirmSetModelValidated(key, value) {
+  pendingModel3dKey = key;
+  pendingModel3dValue = value;
+  var msg = value ? 'Konfirmasi PIN buat approve model 3D ini.' : 'Konfirmasi PIN buat membatalkan validasi model 3D ini.';
+  openPinModal('confirm', function() { setModelValidated(pendingModel3dKey, pendingModel3dValue); }, msg);
+}
+
+// ════════════════════════════════════════════════
+// PESANAN — approve payment_status dari orders
+// ════════════════════════════════════════════════
+var ordersList = [];
+var ordersFilter = 'pending';
+
+function ov(o, keys) {
+  for (var i = 0; i < keys.length; i++) {
+    if (o[keys[i]] !== undefined && o[keys[i]] !== null && o[keys[i]] !== '') return o[keys[i]];
+  }
+  return null;
+}
+
+function formatRupiah(n) {
+  var num = Number(n);
+  if (isNaN(num)) return null;
+  return 'Rp ' + num.toLocaleString('id-ID');
+}
+
+async function loadOrders() {
+  var area = document.getElementById('orderListArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar pesanan...</div></div>';
+  try {
+    var { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
+    if (error) throw new Error(error.message);
+    ordersList = data || [];
+    renderOrders();
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Gagal memuat: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function setOrdersFilter(f) {
+  ordersFilter = f;
+  document.getElementById('ordFilterPending').classList.toggle('active', f === 'pending');
+  document.getElementById('ordFilterPaid').classList.toggle('active', f === 'paid');
+  document.getElementById('ordFilterAll').classList.toggle('active', f === 'all');
+  renderOrders();
+}
+
+function renderOrders() {
+  var area = document.getElementById('orderListArea');
+  var rows = ordersList.filter(function(o) {
+    if (ordersFilter === 'pending') return o.payment_status !== true;
+    if (ordersFilter === 'paid') return o.payment_status === true;
+    return true;
+  });
+  if (!rows.length) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">🧾</div><p>Tidak ada pesanan di kategori ini.</p></div>';
+    return;
+  }
+  area.innerHTML = '<div class="model3d-list">' + rows.map(function(o) {
+    var code = ov(o, ['order_code', 'code', 'id']);
+    var buyer = ov(o, ['buyer_name', 'nama_pembeli', 'customer_name', 'full_name']);
+    var product = ov(o, ['product_name', 'produk', 'nama_produk']);
+    var totalRaw = ov(o, ['total', 'total_price', 'total_harga', 'amount', 'grand_total']);
+    var total = formatRupiah(totalRaw);
+    var proof = ov(o, ['payment_proof_url', 'bukti_transfer', 'proof_url', 'payment_proof']);
+    var status = ov(o, ['status']);
+    var isPaid = o.payment_status === true;
+    var badgeHtml = isPaid
+      ? '<span class="order-badge paid">✅ Approved</span>'
+      : '<span class="order-badge pending">⏳ Menunggu</span>';
+    var thumbHtml = proof
+      ? '<img src="' + esc(proof) + '" alt="bukti" />'
+      : '🧾';
+    var thumbClick = proof ? 'onclick="openLightbox(event, \'' + esc(proof) + '\')"' : '';
+    var actionHtml = isPaid
+      ? '<button class="btn btn-sm btn-ghost" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', true)">↩ Batalkan</button>'
+      : '<button class="btn btn-sm btn-approve" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', false)">✓ Approve</button>';
+    return (
+      '<div class="model3d-row" id="ord-row-' + esc(o.id) + '">' +
+        '<div class="order-thumb-admin" ' + thumbClick + '>' + thumbHtml + '</div>' +
+        '<div class="model3d-info">' +
+          '<div class="order-code">' + esc(code) + '</div>' +
+          '<div class="order-meta">' +
+            (buyer ? '<span>👤 ' + esc(buyer) + '</span>' : '') +
+            (product ? '<span>📦 ' + esc(product) + '</span>' : '') +
+            (total ? '<span>💰 ' + esc(total) + '</span>' : '') +
+            (status ? '<span>' + esc(status) + '</span>' : '') +
+            badgeHtml +
+          '</div>' +
+        '</div>' +
+        '<div class="model3d-actions">' + actionHtml + '</div>' +
+      '</div>'
+    );
+  }).join('') + '</div>';
+}
+
+async function doApprovePayment(orderId, revert) {
+  try {
+    var newVal = !revert;
+    var { error } = await db.from('orders').update({ payment_status: newVal }).eq('id', orderId);
+    if (error) throw new Error(error.message);
+    var item = ordersList.find(function(o) { return String(o.id) === String(orderId); });
+    if (item) item.payment_status = newVal;
+    renderOrders();
+    toast(newVal ? '✅ Pembayaran disetujui!' : '↩ Approval dibatalkan.');
+  } catch(e) {
+    toast('Gagal update: ' + e.message, true);
+  }
+}
+
+// order id currently pending PIN confirmation
+var pendingApproveOrderId = null;
+var pendingApproveRevert = false;
+
+function confirmApprovePayment(orderId, revert) {
+  pendingApproveOrderId = orderId;
+  pendingApproveRevert = revert;
+  var msg = revert ? 'Konfirmasi PIN buat membatalkan approval pembayaran ini.' : 'Konfirmasi PIN buat approve pembayaran pesanan ini.';
+  openPinModal('confirm', function() { doApprovePayment(pendingApproveOrderId, pendingApproveRevert); }, msg);
+}
+
+// ════════════════════════════════════════════════
+// PIN ADMIN — konfirmasi aksi sensitif (approve payment)
+// pin_hash-nya datang dari tabel super_admin pas login, disimpan di memory (sessionPinHash)
+// ════════════════════════════════════════════════
+var pinModalMode = 'confirm';
+var pinModalCallback = null;
+
+async function sha256Hex(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function openPinModal(mode, callback, subMsg) {
+  pinModalMode = mode;
+  pinModalCallback = callback;
+  var title = document.getElementById('pinModalTitle');
+  var sub = document.getElementById('pinModalSub');
+  var in1 = document.getElementById('pinModalInput1');
+  var in2 = document.getElementById('pinModalInput2');
+  var in3 = document.getElementById('pinModalInput3');
+  document.getElementById('pinModalErr').textContent = '';
+  in1.value = ''; in2.value = ''; in3.value = '';
+  if (mode === 'setup') {
+    title.textContent = '🔑 Ganti PIN Admin';
+    sub.textContent = 'Konfirmasi password admin, lalu masukkan PIN baru.';
+    in1.type = 'password';
+    in1.placeholder = 'Password admin saat ini';
+    in2.style.display = 'block'; in2.placeholder = 'PIN baru (min 4 digit)';
+    in3.style.display = 'block'; in3.placeholder = 'Ulangi PIN baru';
+  } else {
+    title.textContent = 'Masukkan PIN Admin';
+    sub.textContent = subMsg || 'Konfirmasi aksi ini.';
+    in1.type = 'password';
+    in1.placeholder = '••••••';
+    in2.style.display = 'none';
+    in3.style.display = 'none';
+  }
+  document.getElementById('pinModal').classList.add('show');
+  setTimeout(function() { in1.focus(); }, 50);
+}
+
+function closePinModal() {
+  document.getElementById('pinModal').classList.remove('show');
+  pinModalCallback = null;
+  pendingApproveOrderId = null;
+  pendingModel3dKey = null;
+}
+
+async function submitPinModal() {
+  var errEl = document.getElementById('pinModalErr');
+  var v1 = document.getElementById('pinModalInput1').value.trim();
+  var v2 = document.getElementById('pinModalInput2').value.trim();
+  var v3 = document.getElementById('pinModalInput3').value.trim();
+  errEl.textContent = '';
+
+  if (pinModalMode === 'setup') {
+    if (!v1) { errEl.textContent = 'Password wajib diisi.'; return; }
+    if (v2.length < 4) { errEl.textContent = 'PIN baru minimal 4 digit.'; return; }
+    if (v2 !== v3) { errEl.textContent = 'PIN baru dan ulangannya tidak sama.'; return; }
+    try {
+      var pwHash = await sha256Hex(v1);
+      var newPinHash = await sha256Hex(v2);
+      var { data, error } = await db.rpc('update_super_admin_pin', {
+        p_id: sessionAdminId, p_password_hash: pwHash, p_new_pin_hash: newPinHash
+      });
+      if (error) throw new Error(error.message);
+      if (!data) { errEl.textContent = 'Password salah.'; return; }
+      sessionPinHash = newPinHash;
+      toast('✅ PIN admin diperbarui.');
+      document.getElementById('pinModal').classList.remove('show');
+      pinModalCallback = null;
+    } catch(e) {
+      errEl.textContent = 'Gagal update: ' + e.message;
+    }
+    return;
+  }
+
+  if (!v1) { errEl.textContent = 'PIN wajib diisi.'; return; }
+  var hashInput = await sha256Hex(v1);
+  if (hashInput !== sessionPinHash) { errEl.textContent = 'PIN salah.'; return; }
+  var cb2 = pinModalCallback;
+  document.getElementById('pinModal').classList.remove('show');
+  pinModalCallback = null;
+  if (cb2) cb2();
+}
+
+function openPinSetupModal() {
+  if (!db) { toast('Connect dulu sebelum ganti PIN.', true); return; }
+  openPinModal('setup', null);
+}
+
+// ── SIDEBAR DRAG-TO-RESIZE (mobile) ──
+(function() {
+  var sidebar = document.getElementById('mobileSidebar');
+  var handle = document.getElementById('sidebarDragHandle');
+  if (!sidebar || !handle) return;
+
+  var DEFAULT_H = 160;
+  var MIN_H = 52;   // kira-kira cuma header kelihatan
+  var dragging = false;
+  var startY = 0;
+  var startH = 0;
+
+  function isMobile() { return window.innerWidth <= 600; }
+  function maxH() { return Math.round(window.innerHeight * 0.75); }
+
+  function onDown(e) {
+    if (!isMobile()) return;
+    dragging = true;
+    startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    startH = sidebar.getBoundingClientRect().height;
+    document.body.style.userSelect = 'none';
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    var y = (e.touches ? e.touches[0].clientY : e.clientY);
+    var delta = y - startY;
+    var newH = Math.min(Math.max(startH + delta, MIN_H), maxH());
+    sidebar.style.maxHeight = newH + 'px';
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+  }
+
+  // Double-tap/klik handle buat reset ke ukuran default
+  handle.addEventListener('dblclick', function() {
+    sidebar.style.maxHeight = DEFAULT_H + 'px';
+  });
+
+  handle.addEventListener('touchstart', onDown, { passive: true });
+  handle.addEventListener('mousedown', onDown);
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchend', onUp);
+  window.addEventListener('mouseup', onUp);
+})();
+
+// Enter key on connect / pin modal
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('connectScreen').style.display !== 'none') {
+    doConnect();
+  }
+  if (e.key === 'Enter' && document.getElementById('pinModal').classList.contains('show')) {
+    submitPinModal();
+  }
+});
+</script>
+</body>
+</html>
