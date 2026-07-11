@@ -6,6 +6,7 @@
   <title>RMRN Super Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/push-subscribe.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -1042,6 +1043,7 @@
       <div class="conn-dot"></div>
       <span id="connLabel">Connected</span>
     </div>
+    <button class="btn-disconnect" style="margin-right:8px" onclick="enablePushNotif()">🔔 Aktifkan Notif</button>
     <button class="btn-disconnect" style="margin-right:8px" onclick="openPinSetupModal()">🔑 Ganti PIN</button>
     <button class="btn-disconnect" onclick="doDisconnect()">Disconnect</button>
   </div>
@@ -1204,6 +1206,23 @@
 var db = null;
 var adminEmail = '';
 var searchTimeout = null;
+
+// ── Push notification (payment_status jadi true) ──
+var PUSH_VAPID_PUBLIC_KEY = 'BP8hQGUPIKIWhWFf4WlpOT0ibD5Ia_CP3h995wfXHDMZyQMboK5-4-y_9jFmVqQtDrH7WzAZoY4bd3IWbqpJ7LI';
+
+async function enablePushNotif() {
+  if (!db) {
+    toast('Login dulu sebelum aktifin notifikasi.', true);
+    return;
+  }
+  try {
+    await subscribeAdminToPush(db, PUSH_VAPID_PUBLIC_KEY);
+    toast('🔔 Notifikasi aktif di device ini!');
+  } catch (e) {
+    console.error(e);
+    toast('Gagal aktifin notifikasi: ' + e.message, true);
+  }
+}
 
 // ── Bootstrap client: HANYA buat panggil RPC verify_super_admin_login. ──
 // Ini anon key (bukan service key!), aman di-embed karena tabel super_admin
