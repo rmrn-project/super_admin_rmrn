@@ -1,15 +1,26 @@
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
+  console.log('[sw] push event diterima, raw text:', event.data ? event.data.text() : '(kosong)');
+
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    console.error('[sw] gagal parse push data sebagai JSON:', e);
+  }
 
   const title = data.title || 'RMRN';
   const options = {
     body: data.body || '',
-    icon: '/icon-192.png', // ganti sesuai icon lo, atau hapus baris ini
+    icon: '/icon-192.png', // ganti sesuai icon lo, atau hapus baris ini kalau belum ada filenya
     badge: '/icon-192.png',
     data: { url: data.url || '/' },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch((e) => {
+      console.error('[sw] showNotification gagal:', e);
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
