@@ -16,7 +16,7 @@ async function subscribeAdminToPush(supabase, vapidPublicKey) {
     return;
   }
 
-  const registration = await navigator.serviceWorker.register('/sw.js');
+  const registration = await navigator.serviceWorker.register('sw.js');
   await navigator.serviceWorker.ready;
 
   let subscription = await registration.pushManager.getSubscription();
