@@ -440,6 +440,40 @@
       width: 100%;
     }
 
+    /* Broadcast tab */
+    .broadcast-info {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      margin-bottom: 22px;
+    }
+    .broadcast-info-icon { font-size: 22px; flex-shrink: 0; }
+    .broadcast-info-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .broadcast-info-sub { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    .broadcast-history-title {
+      font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;
+    }
+    .broadcast-history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+    .broadcast-history-top {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 4px; flex-wrap: wrap;
+    }
+    .broadcast-history-name { font-size: 13px; font-weight: 700; color: var(--text); }
+    .broadcast-history-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .broadcast-history-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+    .broadcast-history-actions { display: flex; gap: 6px; margin-top: 10px; }
+
     /* Search bar */
     .search-section {
       margin-bottom: 28px;
@@ -1018,6 +1052,7 @@
       <button class="topbar-tab active" id="tabBtnProfil" onclick="switchAdminTab('profil')">Profil &amp; Toko</button>
       <button class="topbar-tab" id="tabBtnModel3d" onclick="switchAdminTab('model3d')">3D Kreator</button>
       <button class="topbar-tab" id="tabBtnPesanan" onclick="switchAdminTab('pesanan')">Pesanan</button>
+      <button class="topbar-tab" id="tabBtnBroadcast" onclick="switchAdminTab('broadcast')">📢 Broadcast</button>
     </div>
   </div>
 
@@ -1103,6 +1138,38 @@
           <p>Memuat daftar pesanan...</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Broadcast tab -->
+  <div id="tabBroadcast" style="display:none;">
+    <div class="model3d-main" style="max-width:640px;">
+      <div class="broadcast-info">
+        <div class="broadcast-info-icon">📢</div>
+        <div style="min-width:0;flex:1">
+          <div class="broadcast-info-title">Broadcast ke Semua User</div>
+          <div class="broadcast-info-sub">Pesan bakal muncul di halaman notifikasi <b><span id="bcUserCount">…</span></b> user terdaftar. Gak bisa ditarik lagi setelah dikirim, jadi cek dulu sebelum kirim.</div>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom:14px">
+        <label>Judul</label>
+        <input type="text" id="bcTitle" placeholder="Misal: Promo Spesial 17 Agustus 🎉" maxlength="120" />
+      </div>
+
+      <div class="edit-field" style="margin-bottom:6px">
+        <label>Isi Pesan</label>
+        <textarea id="bcDesc" placeholder="Tulis isi broadcast di sini..." maxlength="500" style="min-height:130px" oninput="document.getElementById('bcDescCount').textContent = this.value.length + '/500'"></textarea>
+      </div>
+      <div style="text-align:right;margin-bottom:18px">
+        <span style="font-size:11px;color:var(--text-muted)" id="bcDescCount">0/500</span>
+      </div>
+
+      <div class="edit-actions" style="margin-top:0">
+        <button class="btn-save" id="bcSendBtn" onclick="sendBroadcast()">📢 Kirim Broadcast</button>
+      </div>
+
+      <div id="bcHistoryArea" style="margin-top:28px"></div>
     </div>
   </div>
 
@@ -1918,11 +1985,14 @@ function switchAdminTab(tab) {
   document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
   document.getElementById('tab3DKreator').style.display = tab === 'model3d' ? 'block' : 'none';
   document.getElementById('tabPesanan').style.display = tab === 'pesanan' ? 'block' : 'none';
+  document.getElementById('tabBroadcast').style.display = tab === 'broadcast' ? 'block' : 'none';
   document.getElementById('tabBtnProfil').classList.toggle('active', tab === 'profil');
   document.getElementById('tabBtnModel3d').classList.toggle('active', tab === 'model3d');
   document.getElementById('tabBtnPesanan').classList.toggle('active', tab === 'pesanan');
+  document.getElementById('tabBtnBroadcast').classList.toggle('active', tab === 'broadcast');
   if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
   if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
+  if (tab === 'broadcast') { loadBroadcastCount(); loadBroadcastHistory(); }
 }
 
 function setModel3dFilter(f) {
@@ -2130,6 +2200,206 @@ function confirmApprovePayment(orderId, revert) {
   pendingApproveRevert = revert;
   var msg = revert ? 'Konfirmasi PIN buat membatalkan approval pembayaran ini.' : 'Konfirmasi PIN buat approve pembayaran pesanan ini.';
   openPinModal('confirm', function() { doApprovePayment(pendingApproveOrderId, pendingApproveRevert); }, msg);
+}
+
+// ════════════════════════════════════════════════
+// BROADCAST — kirim notifikasi ke semua user (insert 1 row per user ke `notifications`)
+// ════════════════════════════════════════════════
+var bcSending = false;
+
+async function loadBroadcastCount() {
+  var el = document.getElementById('bcUserCount');
+  if (!el || !db) return;
+  el.textContent = '…';
+  try {
+    var { count, error } = await db.from('profiles').select('id', { count: 'exact', head: true });
+    if (error) throw error;
+    el.textContent = count != null ? count.toLocaleString('id-ID') : '?';
+  } catch(e) {
+    el.textContent = '?';
+  }
+}
+
+function sendBroadcast() {
+  if (bcSending) return;
+  var title = document.getElementById('bcTitle').value.trim();
+  var desc = document.getElementById('bcDesc').value.trim();
+  if (!title) { toast('Judul broadcast wajib diisi.', true); return; }
+  if (!desc) { toast('Isi pesan wajib diisi.', true); return; }
+  var countEl = document.getElementById('bcUserCount');
+  var countTxt = countEl ? countEl.textContent : '?';
+  openPinModal('confirm', function() { sendBroadcastActual(title, desc); },
+    '⚠️ Konfirmasi PIN buat kirim broadcast ke ' + countTxt + ' user. Tindakan ini gak bisa dibatalin.');
+}
+
+async function sendBroadcastActual(title, desc) {
+  var btn = document.getElementById('bcSendBtn');
+  bcSending = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Mengirim...'; }
+  try {
+    var { data: users, error: uErr } = await db.from('profiles').select('id');
+    if (uErr) throw new Error(uErr.message);
+    if (!users || !users.length) throw new Error('Gak ada user ditemukan di tabel profiles.');
+
+    // created_at di-set manual & sama persis buat semua row broadcast ini —
+    // ini yang jadi "id" broadcast secara implisit, biar edit/hapus bisa presisi ke 1 broadcast aja.
+    var batchTimestamp = new Date().toISOString();
+
+    var rows = users.map(function(u) {
+      return {
+        user_id: u.id,
+        type: 'system',
+        title: title,
+        description: desc,
+        order_code: null,
+        status: null,
+        is_read: false,
+        created_at: batchTimestamp
+      };
+    });
+
+    // Insert per-batch biar gak kena limit payload kalau user-nya banyak
+    var CHUNK = 500;
+    for (var i = 0; i < rows.length; i += CHUNK) {
+      var slice = rows.slice(i, i + CHUNK);
+      var { error } = await db.from('notifications').insert(slice);
+      if (error) throw new Error(error.message);
+    }
+
+    toast('✅ Broadcast terkirim ke ' + rows.length.toLocaleString('id-ID') + ' user!');
+    document.getElementById('bcTitle').value = '';
+    document.getElementById('bcDesc').value = '';
+    document.getElementById('bcDescCount').textContent = '0/500';
+    loadBroadcastHistory();
+  } catch(e) {
+    toast('Gagal kirim broadcast: ' + e.message, true);
+  } finally {
+    bcSending = false;
+    if (btn) { btn.disabled = false; btn.textContent = '📢 Kirim Broadcast'; }
+  }
+}
+
+var bcHistoryItems = [];
+
+async function loadBroadcastHistory() {
+  var area = document.getElementById('bcHistoryArea');
+  if (!area || !db) return;
+  area.innerHTML = '<div class="broadcast-history-title">Riwayat Broadcast</div><div class="loading" style="padding:20px"><div class="spinner"></div></div>';
+  try {
+    var { data, error } = await db.from('notifications')
+      .select('title, description, created_at')
+      .eq('type', 'system')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+
+    // Group by created_at PERSIS (semua row 1 broadcast punya timestamp yang sama persis)
+    var groups = {};
+    var order = [];
+    (data || []).forEach(function(r) {
+      var key = r.created_at;
+      if (!groups[key]) { groups[key] = { title: r.title, description: r.description, created_at: r.created_at, count: 0 }; order.push(key); }
+      groups[key].count++;
+    });
+
+    bcHistoryItems = order.map(function(k) { return groups[k]; }).slice(0, 15);
+    renderBroadcastHistory();
+  } catch(e) {
+    area.innerHTML = '<div class="broadcast-history-title">Riwayat Broadcast</div><div style="font-size:12px;color:var(--red)">Gagal memuat: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderBroadcastHistory() {
+  var area = document.getElementById('bcHistoryArea');
+  if (!area) return;
+  if (!bcHistoryItems.length) {
+    area.innerHTML = '<div class="broadcast-history-title">Riwayat Broadcast</div><div style="font-size:12px;color:var(--text-muted);font-style:italic">Belum ada broadcast yang dikirim.</div>';
+    return;
+  }
+  area.innerHTML = '<div class="broadcast-history-title">Riwayat Broadcast</div>' + bcHistoryItems.map(function(it, idx) {
+    var date = it.created_at ? new Date(it.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return '<div class="broadcast-history-item" id="bch-item-' + idx + '">' +
+      '<div class="broadcast-history-top">' +
+        '<span class="broadcast-history-name">' + esc(it.title) + '</span>' +
+        '<span class="broadcast-history-meta">' + date + ' · ' + it.count.toLocaleString('id-ID') + ' user</span>' +
+      '</div>' +
+      '<div class="broadcast-history-desc" id="bch-desc-' + idx + '">' + esc(it.description) + '</div>' +
+      '<div class="broadcast-history-actions">' +
+        '<button class="btn btn-ghost btn-sm" onclick="showBroadcastEdit(' + idx + ')">✏️ Edit</button>' +
+        '<button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" onclick="confirmDeleteBroadcast(' + idx + ')">🗑 Hapus</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function showBroadcastEdit(idx) {
+  var it = bcHistoryItems[idx];
+  if (!it) return;
+  var item = document.getElementById('bch-item-' + idx);
+  if (!item) return;
+  item.querySelector('.broadcast-history-actions').style.display = 'none';
+  var descEl = document.getElementById('bch-desc-' + idx);
+  descEl.outerHTML =
+    '<div id="bch-desc-' + idx + '">' +
+      '<div class="edit-field" style="margin-bottom:8px"><label>Judul</label><input type="text" id="bch-edit-title-' + idx + '" value="' + esc(it.title) + '" maxlength="120" /></div>' +
+      '<div class="edit-field" style="margin-bottom:10px"><label>Isi Pesan</label><textarea id="bch-edit-desc-' + idx + '" maxlength="500" style="min-height:90px">' + esc(it.description) + '</textarea></div>' +
+      '<div class="edit-actions" style="margin-top:0">' +
+        '<button class="btn-save" onclick="saveBroadcastEdit(' + idx + ')">💾 Simpan</button>' +
+        '<button class="btn-cancel-edit" onclick="renderBroadcastHistory()">Batal</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function saveBroadcastEdit(idx) {
+  var it = bcHistoryItems[idx];
+  if (!it) return;
+  var newTitle = document.getElementById('bch-edit-title-' + idx).value.trim();
+  var newDesc = document.getElementById('bch-edit-desc-' + idx).value.trim();
+  if (!newTitle || !newDesc) { toast('Judul & isi wajib diisi.', true); return; }
+  openPinModal('confirm', function() { saveBroadcastEditActual(idx, newTitle, newDesc); },
+    'Konfirmasi PIN buat update broadcast ini (ke ' + it.count.toLocaleString('id-ID') + ' user).');
+}
+
+async function saveBroadcastEditActual(idx, newTitle, newDesc) {
+  var it = bcHistoryItems[idx];
+  if (!it) return;
+  try {
+    var { error } = await db.from('notifications')
+      .update({ title: newTitle, description: newDesc })
+      .eq('type', 'system')
+      .eq('created_at', it.created_at);
+    if (error) throw new Error(error.message);
+    it.title = newTitle;
+    it.description = newDesc;
+    renderBroadcastHistory();
+    toast('✅ Broadcast diperbarui.');
+  } catch(e) {
+    toast('Gagal update: ' + e.message, true);
+  }
+}
+
+function confirmDeleteBroadcast(idx) {
+  var it = bcHistoryItems[idx];
+  if (!it) return;
+  openPinModal('confirm', function() { deleteBroadcastActual(idx); },
+    '⚠️ Konfirmasi PIN buat HAPUS broadcast ini dari database (' + it.count.toLocaleString('id-ID') + ' row notifikasi user bakal ikut kehapus). Gak bisa dibatalin.');
+}
+
+async function deleteBroadcastActual(idx) {
+  var it = bcHistoryItems[idx];
+  if (!it) return;
+  try {
+    var { error } = await db.from('notifications')
+      .delete()
+      .eq('type', 'system')
+      .eq('created_at', it.created_at);
+    if (error) throw new Error(error.message);
+    bcHistoryItems.splice(idx, 1);
+    renderBroadcastHistory();
+    toast('🗑 Broadcast & ' + it.count.toLocaleString('id-ID') + ' notifikasi user dihapus dari database.');
+  } catch(e) {
+    toast('Gagal hapus: ' + e.message, true);
+  }
 }
 
 // ════════════════════════════════════════════════
