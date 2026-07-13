@@ -6,7 +6,7 @@
   <title>RMRN Super Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="push-subscribe.js"></script>
+  <script src="/push-subscribe.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -392,6 +392,8 @@
     }
     .order-badge.pending { background: var(--yellow-dim); color: var(--yellow); }
     .order-badge.paid { background: var(--green-dim); color: var(--green); }
+    .order-badge.verified { background: var(--green-dim); color: var(--green); }
+    .order-badge.problem { background: var(--red-dim); color: var(--red); }
 
     /* PIN modal */
     .pin-modal {
@@ -1054,6 +1056,7 @@
       <button class="topbar-tab active" id="tabBtnProfil" onclick="switchAdminTab('profil')">Profil &amp; Toko</button>
       <button class="topbar-tab" id="tabBtnModel3d" onclick="switchAdminTab('model3d')">3D Kreator</button>
       <button class="topbar-tab" id="tabBtnPesanan" onclick="switchAdminTab('pesanan')">Pesanan</button>
+      <button class="topbar-tab" id="tabBtnPencairan" onclick="switchAdminTab('pencairan')">💸 Pencairan</button>
       <button class="topbar-tab" id="tabBtnBroadcast" onclick="switchAdminTab('broadcast')">📢 Broadcast</button>
     </div>
   </div>
@@ -1143,6 +1146,27 @@
     </div>
   </div>
 
+  <!-- Pencairan tab -->
+  <div id="tabPencairan" style="display:none;">
+    <div class="model3d-main">
+      <div class="model3d-toolbar">
+        <div class="model3d-filter">
+          <button class="model3d-filter-btn active" id="poFilterPending" onclick="setPayoutFilter('pending')">⏳ Menunggu</button>
+          <button class="model3d-filter-btn" id="poFilterVerified" onclick="setPayoutFilter('verified')">✅ Terverifikasi</button>
+          <button class="model3d-filter-btn" id="poFilterProblem" onclick="setPayoutFilter('problem')">⚠️ Bermasalah</button>
+          <button class="model3d-filter-btn" id="poFilterAll" onclick="setPayoutFilter('all')">Semua</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadPayoutRequests()">↻ Refresh</button>
+      </div>
+      <div id="payoutListArea">
+        <div class="empty-state">
+          <div class="es-icon">💸</div>
+          <p>Memuat daftar pencairan...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Broadcast tab -->
   <div id="tabBroadcast" style="display:none;">
     <div class="model3d-main" style="max-width:640px;">
@@ -1208,7 +1232,7 @@ var adminEmail = '';
 var searchTimeout = null;
 
 // ── Push notification (payment_status jadi true) ──
-var PUSH_VAPID_PUBLIC_KEY = 'BP8hQGUPIKIWhWFf4WlpOT0ibD5Ia_CP3h995wfXHDMZyQMboK5-4-y_9jFmVqQtDrH7WzAZoY4bd3IWbqpJ7LI';
+var VAPID_PUBLIC_KEY = 'BP8hQGUPIKIWhWFf4WlpOT0ibD5Ia_CP3h995wfXHDMZyQMboK5-4-y_9jFmVqQtDrH7WzAZoY4bd3IWbqpJ7LI';
 
 async function enablePushNotif() {
   if (!db) {
@@ -2004,13 +2028,16 @@ function switchAdminTab(tab) {
   document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
   document.getElementById('tab3DKreator').style.display = tab === 'model3d' ? 'block' : 'none';
   document.getElementById('tabPesanan').style.display = tab === 'pesanan' ? 'block' : 'none';
+  document.getElementById('tabPencairan').style.display = tab === 'pencairan' ? 'block' : 'none';
   document.getElementById('tabBroadcast').style.display = tab === 'broadcast' ? 'block' : 'none';
   document.getElementById('tabBtnProfil').classList.toggle('active', tab === 'profil');
   document.getElementById('tabBtnModel3d').classList.toggle('active', tab === 'model3d');
   document.getElementById('tabBtnPesanan').classList.toggle('active', tab === 'pesanan');
+  document.getElementById('tabBtnPencairan').classList.toggle('active', tab === 'pencairan');
   document.getElementById('tabBtnBroadcast').classList.toggle('active', tab === 'broadcast');
   if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
   if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
+  if (tab === 'pencairan' && payoutList.length === 0) loadPayoutRequests();
   if (tab === 'broadcast') { loadBroadcastCount(); loadBroadcastHistory(); }
 }
 
@@ -2219,6 +2246,138 @@ function confirmApprovePayment(orderId, revert) {
   pendingApproveRevert = revert;
   var msg = revert ? 'Konfirmasi PIN buat membatalkan approval pembayaran ini.' : 'Konfirmasi PIN buat approve pembayaran pesanan ini.';
   openPinModal('confirm', function() { doApprovePayment(pendingApproveOrderId, pendingApproveRevert); }, msg);
+}
+
+// ════════════════════════════════════════════════
+// PENCAIRAN — kelola payout_requests (verifikasi transfer ke seller)
+// Status di payout_requests (enum): pending | verified | problem
+// Sinkron ke orders.payout_status tiap kali status di sini diubah, biar
+// order yang udah 'requested' gak nyangkut selamanya (lihat catatan di
+// getPayoutEligibleOrders() / dashboard.js):
+//   verified -> orders.payout_status jadi 'paid'      (beres, dana udah cair)
+//   problem  -> orders.payout_status balik 'available' (gagal, saldo balik ke seller)
+//   direset ke pending lagi -> orders.payout_status balik 'requested'
+// ════════════════════════════════════════════════
+var payoutList = [];
+var payoutFilter = 'pending';
+
+var PAYOUT_TO_ORDER_STATUS = {
+  verified: 'paid',
+  problem:  'available',
+  pending:  'requested'
+};
+
+async function loadPayoutRequests() {
+  var area = document.getElementById('payoutListArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar pencairan...</div></div>';
+  try {
+    var { data, error } = await db.from('payout_requests').select('*').order('requested_at', { ascending: false }).limit(200);
+    if (error) throw new Error(error.message);
+    payoutList = data || [];
+    renderPayoutRequests();
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Gagal memuat: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function setPayoutFilter(f) {
+  payoutFilter = f;
+  document.getElementById('poFilterPending').classList.toggle('active', f === 'pending');
+  document.getElementById('poFilterVerified').classList.toggle('active', f === 'verified');
+  document.getElementById('poFilterProblem').classList.toggle('active', f === 'problem');
+  document.getElementById('poFilterAll').classList.toggle('active', f === 'all');
+  renderPayoutRequests();
+}
+
+function renderPayoutRequests() {
+  var area = document.getElementById('payoutListArea');
+  var rows = payoutList.filter(function(r) {
+    if (payoutFilter === 'all') return true;
+    return (r.status || 'pending') === payoutFilter;
+  });
+  if (!rows.length) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">💸</div><p>Tidak ada permintaan pencairan di kategori ini.</p></div>';
+    return;
+  }
+  area.innerHTML = '<div class="model3d-list">' + rows.map(function(r) {
+    var date = r.requested_at ? new Date(r.requested_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    var codes = (r.order_codes || []).join(', ') || '-';
+    var status = r.status || 'pending';
+    var badgeHtml =
+      status === 'verified' ? '<span class="order-badge verified">✅ Terverifikasi</span>' :
+      status === 'problem'  ? '<span class="order-badge problem">⚠️ Bermasalah</span>' :
+      '<span class="order-badge pending">⏳ Menunggu</span>';
+    var actionHtml = status === 'pending'
+      ? ('<button class="btn btn-sm btn-approve" onclick="confirmSetPayoutStatus(\'' + esc(r.id) + '\', \'verified\')">✓ Verifikasi</button>' +
+         '<button class="btn btn-sm btn-reject" onclick="confirmSetPayoutStatus(\'' + esc(r.id) + '\', \'problem\')">⚠ Bermasalah</button>')
+      : ('<button class="btn btn-sm btn-ghost" onclick="confirmSetPayoutStatus(\'' + esc(r.id) + '\', \'pending\')">↩ Reset ke Menunggu</button>');
+    return (
+      '<div class="model3d-row" id="po-row-' + esc(r.id) + '">' +
+        '<div class="order-thumb-admin">💸</div>' +
+        '<div class="model3d-info">' +
+          '<div class="order-code">' + esc(r.seller_name || r.seller_email || r.seller_id) + '</div>' +
+          '<div class="order-meta">' +
+            '<span>🧾 ' + esc(codes) + '</span>' +
+            '<span>💰 ' + esc(formatRupiah(r.net_amount) || '-') + '</span>' +
+            (date ? '<span>' + date + '</span>' : '') +
+            badgeHtml +
+          '</div>' +
+          (r.admin_note ? '<div class="order-meta" style="margin-top:4px;color:var(--red)">📝 ' + esc(r.admin_note) + '</div>' : '') +
+        '</div>' +
+        '<div class="model3d-actions">' + actionHtml + '</div>' +
+      '</div>'
+    );
+  }).join('') + '</div>';
+}
+
+async function doSetPayoutStatus(id, newStatus, note) {
+  try {
+    var row = payoutList.find(function(r) { return String(r.id) === String(id); });
+    if (!row) throw new Error('Data pencairan tidak ditemukan (coba refresh).');
+
+    var payload = { status: newStatus };
+    if (newStatus === 'verified' || newStatus === 'problem') payload.processed_at = new Date().toISOString();
+    if (newStatus === 'problem' && note) payload.admin_note = note;
+    if (newStatus === 'pending') { payload.processed_at = null; payload.admin_note = null; }
+
+    var { error } = await db.from('payout_requests').update(payload).eq('id', id);
+    if (error) throw new Error(error.message);
+
+    // Sinkron balik ke orders.payout_status buat semua order_code di request ini
+    var orderCodes = row.order_codes || [];
+    if (orderCodes.length) {
+      var { error: oErr } = await db.from('orders').update({ payout_status: PAYOUT_TO_ORDER_STATUS[newStatus] }).in('order_code', orderCodes);
+      if (oErr) throw new Error('Status pencairan tersimpan, tapi gagal sinkron ke orders: ' + oErr.message);
+    }
+
+    Object.assign(row, payload);
+    renderPayoutRequests();
+    toast(
+      newStatus === 'verified' ? '✅ Pencairan diverifikasi, saldo order ditandai paid.' :
+      newStatus === 'problem'  ? '⚠️ Pencairan ditandai bermasalah, saldo balik ke seller.' :
+      '↩ Direset ke pending, saldo order balik ke requested.'
+    );
+  } catch(e) {
+    toast('Gagal update: ' + e.message, true);
+  }
+}
+
+// payout request id currently pending PIN confirmation
+var pendingPayoutId = null;
+var pendingPayoutStatus = null;
+
+function confirmSetPayoutStatus(id, newStatus) {
+  pendingPayoutId = id;
+  pendingPayoutStatus = newStatus;
+  var note = null;
+  if (newStatus === 'problem') {
+    note = window.prompt('Catatan buat seller (opsional), misal: "Rekening tidak sesuai nama":', '') || '';
+  }
+  var msg =
+    newStatus === 'verified' ? 'Konfirmasi PIN buat menandai pencairan ini SUDAH ditransfer ke seller.' :
+    newStatus === 'problem'  ? 'Konfirmasi PIN buat menandai pencairan ini bermasalah. Saldo bakal balik ke seller.' :
+    'Konfirmasi PIN buat reset status pencairan ini ke menunggu lagi.';
+  openPinModal('confirm', function() { doSetPayoutStatus(pendingPayoutId, pendingPayoutStatus, note); }, msg);
 }
 
 // ════════════════════════════════════════════════
