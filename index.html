@@ -475,6 +475,38 @@
     .pin-box-actions { display: flex; gap: 8px; margin-top: 4px; }
     .pin-box-actions .btn { flex: 1; }
 
+    /* Credit info modal (Daftarkan ke 3D Model Credits) */
+    .credit-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 700;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .credit-modal.show { display: flex; }
+    .credit-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+    .credit-box-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .credit-box-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+    .credit-box-err { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 4px; }
+    .credit-box-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .credit-box-actions .btn { flex: 1; }
+    @media (max-width: 480px) {
+      .credit-modal { padding: 0; align-items: flex-end; }
+      .credit-box { max-width: 100%; max-height: 92vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    }
+
     /* Main content area */
     .main-content {
       max-width: 860px;
@@ -1304,6 +1336,41 @@
     <div class="pin-box-actions">
       <button class="btn btn-ghost" onclick="closePinModal()">Batal</button>
       <button class="btn btn-primary" onclick="submitPinModal()">Konfirmasi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Credit info modal (Daftarkan ke 3D Model Credits) -->
+<div class="credit-modal" id="creditModal">
+  <div class="credit-box">
+    <div class="credit-box-title">Lengkapi Info Credit</div>
+    <div class="credit-box-sub" id="creditModalSub">Isi data sumber &amp; kreator sebelum model didaftarkan ke halaman 3D Model Credits.</div>
+    <div class="edit-grid">
+      <div class="edit-field">
+        <label>Nama Kreator *</label>
+        <input type="text" id="creditInputCreatorName" placeholder="Nama kreator" />
+      </div>
+      <div class="edit-field">
+        <label>URL Kreator</label>
+        <input type="text" id="creditInputCreatorUrl" placeholder="https://..." />
+      </div>
+      <div class="edit-field">
+        <label>Nama Sumber *</label>
+        <input type="text" id="creditInputSourceName" placeholder="Sketchfab" />
+      </div>
+      <div class="edit-field">
+        <label>URL Sumber</label>
+        <input type="text" id="creditInputSourceUrl" placeholder="https://..." />
+      </div>
+      <div class="edit-field" style="grid-column: 1 / -1;">
+        <label>Lisensi *</label>
+        <input type="text" id="creditInputLicense" placeholder="CC BY 4.0" />
+      </div>
+    </div>
+    <div class="credit-box-err" id="creditModalErr"></div>
+    <div class="credit-box-actions">
+      <button class="btn btn-ghost" onclick="closeCreditModal()">Batal</button>
+      <button class="btn btn-primary" onclick="submitCreditModal()">Daftarkan</button>
     </div>
   </div>
 </div>
@@ -2181,7 +2248,13 @@ var selectedModel3dKeys = new Set();
 
 // ── Daftarkan ke 3D Model Credits page — cuma buat creator tertentu ──
 var CREDITS_ALLOWED_CREATOR_ID = '5a60a820-b0e7-4f72-b171-179324ba2784';
-var registeredModelKeys = new Set();
+var registeredModelCredits = {}; // key -> row dari model_credits (model_key, creator_name, creator_url, source_name, source_url, license)
+
+// Field wajib (not null di tabel model_credits) buat dianggap "lengkap"
+function isCreditComplete(row) {
+  if (!row) return false;
+  return !!(String(row.creator_name || '').trim() && String(row.source_name || '').trim() && String(row.license || '').trim());
+}
 
 function switchAdminTab(tab) {
   document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
@@ -2226,11 +2299,12 @@ async function loadModel3dList() {
     if (error) throw new Error(error.message);
     model3dList = data || [];
 
-    // Cek model mana yang udah terdaftar di credits page (model_credits)
-    registeredModelKeys.clear();
+    // Cek model mana yang udah terdaftar di credits page (model_credits) + kelengkapan datanya
+    registeredModelCredits = {};
     try {
-      var { data: credRows, error: credErr } = await db3d.from('model_credits').select('model_key');
-      if (!credErr && credRows) credRows.forEach(function(r) { if (r.model_key) registeredModelKeys.add(r.model_key); });
+      var { data: credRows, error: credErr } = await db3d.from('model_credits')
+        .select('model_key, creator_name, creator_url, source_name, source_url, license');
+      if (!credErr && credRows) credRows.forEach(function(r) { if (r.model_key) registeredModelCredits[r.model_key] = r; });
     } catch(_) { /* diemin, ga fatal buat list utama */ }
 
     renderModel3dList();
@@ -2267,9 +2341,9 @@ function renderModel3dList() {
 
     var registerBtn = '';
     if (m.creator_id === CREDITS_ALLOWED_CREATOR_ID) {
-      registerBtn = registeredModelKeys.has(m.key)
+      registerBtn = isCreditComplete(registeredModelCredits[m.key])
         ? '<button class="btn btn-sm btn-ghost" disabled style="opacity:0.5;cursor:default">✅ Terdaftar</button>'
-        : '<button class="btn btn-sm btn-approve" onclick="confirmRegisterModel3d(\'' + esc(m.key) + '\')">📋 Daftarkan</button>';
+        : '<button class="btn btn-sm btn-approve" onclick="openCreditModal(\'' + esc(m.key) + '\')">📋 Daftarkan</button>';
     }
 
     return (
@@ -2359,30 +2433,70 @@ async function doBulkSetModelValidated(keys, value) {
 
 // ── Daftarkan model ke 3D Model Credits page (table model_credits) ──
 // Cuma boleh buat model dengan creator_id === CREDITS_ALLOWED_CREATOR_ID (tombolnya juga cuma muncul buat itu)
-function confirmRegisterModel3d(key) {
+var pendingCreditModelKey = null;
+
+function openCreditModal(key) {
   var m = model3dList.find(function(x) { return x.key === key; });
   if (!m) { toast('Model tidak ditemukan (coba refresh).', true); return; }
   if (m.creator_id !== CREDITS_ALLOWED_CREATOR_ID) { toast('Model ini tidak diizinkan untuk didaftarkan.', true); return; }
-  if (registeredModelKeys.has(key)) { toast('Model ini sudah terdaftar.', true); return; }
-  openPinModal('confirm', function() { doRegisterModel3d(key); }, 'Konfirmasi PIN buat mendaftarkan model ini ke halaman 3D Model Credits.');
+  if (isCreditComplete(registeredModelCredits[key])) { toast('Model ini sudah terdaftar.', true); return; }
+
+  pendingCreditModelKey = key;
+  var existing = registeredModelCredits[key] || {};
+  document.getElementById('creditModalSub').textContent =
+    'Isi data sumber & kreator buat model "' + (m.label || m.key) + '" sebelum didaftarkan ke halaman 3D Model Credits.';
+  document.getElementById('creditInputCreatorName').value = existing.creator_name || m.creator_name || '';
+  document.getElementById('creditInputCreatorUrl').value  = existing.creator_url  || '';
+  document.getElementById('creditInputSourceName').value  = existing.source_name  || 'Sketchfab';
+  document.getElementById('creditInputSourceUrl').value   = existing.source_url   || '';
+  document.getElementById('creditInputLicense').value     = existing.license      || 'CC BY 4.0';
+  document.getElementById('creditModalErr').textContent = '';
+  document.getElementById('creditModal').classList.add('show');
 }
 
-async function doRegisterModel3d(key) {
+function closeCreditModal() {
+  document.getElementById('creditModal').classList.remove('show');
+  pendingCreditModelKey = null;
+}
+
+function submitCreditModal() {
+  var key = pendingCreditModelKey;
+  var errEl = document.getElementById('creditModalErr');
+  var payload = {
+    creator_name: document.getElementById('creditInputCreatorName').value.trim(),
+    creator_url:  document.getElementById('creditInputCreatorUrl').value.trim(),
+    source_name:  document.getElementById('creditInputSourceName').value.trim(),
+    source_url:   document.getElementById('creditInputSourceUrl').value.trim(),
+    license:      document.getElementById('creditInputLicense').value.trim()
+  };
+  if (!payload.creator_name || !payload.source_name || !payload.license) {
+    errEl.textContent = 'Nama Kreator, Nama Sumber, dan Lisensi wajib diisi.';
+    return;
+  }
+  errEl.textContent = '';
+  document.getElementById('creditModal').classList.remove('show');
+  openPinModal('confirm', function() { doRegisterModel3d(key, payload); }, 'Konfirmasi PIN buat mendaftarkan model ini ke halaman 3D Model Credits.');
+}
+
+async function doRegisterModel3d(key, payload) {
   try {
     var m = model3dList.find(function(x) { return x.key === key; });
     if (!m) throw new Error('Model tidak ditemukan (coba refresh).');
     if (m.creator_id !== CREDITS_ALLOWED_CREATOR_ID) throw new Error('Model ini tidak diizinkan untuk didaftarkan.');
 
-    var { error } = await db3d.from('model_credits').insert({
+    var row = {
       model_key:    m.key,
       name:         m.label || m.key,
-      creator_name: m.creator_name || 'Unknown'
-    });
-    if (error) {
-      if (error.code === '23505') throw new Error('Model ini sudah terdaftar sebelumnya.');
-      throw new Error(error.message);
-    }
-    registeredModelKeys.add(key);
+      creator_name: payload.creator_name,
+      creator_url:  payload.creator_url || null,
+      source_name:  payload.source_name,
+      source_url:   payload.source_url || null,
+      license:      payload.license
+    };
+    var { error } = await db3d.from('model_credits').upsert(row, { onConflict: 'model_key' });
+    if (error) throw new Error(error.message);
+
+    registeredModelCredits[key] = row;
     renderModel3dList();
     toast('📋 Model "' + (m.label || m.key) + '" didaftarkan ke halaman credits!');
   } catch(e) {
