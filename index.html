@@ -276,6 +276,23 @@
       background: var(--accent-dim);
       border-color: var(--accent);
     }
+    .model3d-filter-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .model3d-filter-divider {
+      width: 1px;
+      align-self: stretch;
+      background: var(--border);
+      margin-bottom: 2px;
+    }
+    @media (max-width: 700px) {
+      .model3d-filter-divider { display: none; }
+    }
     .model3d-list {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -502,6 +519,16 @@
     .credit-box-err { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 4px; }
     .credit-box-actions { display: flex; gap: 8px; margin-top: 16px; }
     .credit-box-actions .btn { flex: 1; }
+    .credit-license-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-top: 5px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
     @media (max-width: 480px) {
       .credit-modal { padding: 0; align-items: flex-end; }
       .credit-box { max-width: 100%; max-height: 92vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
@@ -1183,10 +1210,24 @@
   <div id="tab3DKreator" style="display:none;">
     <div class="model3d-main">
       <div class="model3d-toolbar">
-        <div class="model3d-filter">
-          <button class="model3d-filter-btn active" id="m3dFilterPending" onclick="setModel3dFilter('pending')">⏳ Menunggu</button>
-          <button class="model3d-filter-btn" id="m3dFilterValidated" onclick="setModel3dFilter('validated')">✅ Tervalidasi</button>
-          <button class="model3d-filter-btn" id="m3dFilterAll" onclick="setModel3dFilter('all')">Semua</button>
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
+          <div>
+            <div class="model3d-filter-label">Validasi</div>
+            <div class="model3d-filter">
+              <button class="model3d-filter-btn active" id="m3dFilterPending" onclick="setModel3dFilter('pending')">⏳ Menunggu</button>
+              <button class="model3d-filter-btn" id="m3dFilterValidated" onclick="setModel3dFilter('validated')">✅ Tervalidasi</button>
+              <button class="model3d-filter-btn" id="m3dFilterAll" onclick="setModel3dFilter('all')">Semua</button>
+            </div>
+          </div>
+          <div class="model3d-filter-divider"></div>
+          <div>
+            <div class="model3d-filter-label">Status Daftar Credits</div>
+            <div class="model3d-filter">
+              <button class="model3d-filter-btn active" id="m3dCreditFilterAll" onclick="setModel3dCreditFilter('all')">Semua</button>
+              <button class="model3d-filter-btn" id="m3dCreditFilterRegistered" onclick="setModel3dCreditFilter('registered')">📋 Terdaftar</button>
+              <button class="model3d-filter-btn" id="m3dCreditFilterUnregistered" onclick="setModel3dCreditFilter('unregistered')">❌ Belum Terdaftar</button>
+            </div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="m3dSelectAllChk" onclick="toggleSelectAllModel3d(this.checked)"> Pilih Semua</label>
@@ -1364,7 +1405,20 @@
       </div>
       <div class="edit-field" style="grid-column: 1 / -1;">
         <label>Lisensi *</label>
-        <input type="text" id="creditInputLicense" placeholder="CC BY 4.0" />
+        <select id="creditInputLicense" onchange="toggleCreditLicenseCustom()">
+          <option value="CC BY 4.0">CC BY 4.0</option>
+          <option value="CC BY-SA 4.0">CC BY-SA 4.0</option>
+          <option value="CC BY-NC 4.0">CC BY-NC 4.0</option>
+          <option value="CC0">CC0 (Public Domain)</option>
+          <option value="Royalty Free (Sketchfab Standard)">Royalty Free (Sketchfab Standard)</option>
+          <option value="Proprietary - All Rights Reserved">Proprietary - All Rights Reserved</option>
+          <option value="__custom__">Lainnya (isi manual)...</option>
+        </select>
+        <div class="credit-license-desc" id="creditLicenseDesc"></div>
+      </div>
+      <div class="edit-field" id="creditLicenseCustomWrap" style="grid-column: 1 / -1; display:none;">
+        <label>Lisensi (Manual) *</label>
+        <input type="text" id="creditInputLicenseCustom" placeholder="Tulis lisensi custom..." />
       </div>
     </div>
     <div class="credit-box-err" id="creditModalErr"></div>
@@ -2288,6 +2342,17 @@ function setModel3dFilter(f) {
   renderModel3dList();
 }
 
+var model3dCreditFilter = 'all';
+
+function setModel3dCreditFilter(f) {
+  model3dCreditFilter = f;
+  selectedModel3dKeys.clear();
+  document.getElementById('m3dCreditFilterAll').classList.toggle('active', f === 'all');
+  document.getElementById('m3dCreditFilterRegistered').classList.toggle('active', f === 'registered');
+  document.getElementById('m3dCreditFilterUnregistered').classList.toggle('active', f === 'unregistered');
+  renderModel3dList();
+}
+
 async function loadModel3dList() {
   var area = document.getElementById('model3dListArea');
   selectedModel3dKeys.clear();
@@ -2300,12 +2365,19 @@ async function loadModel3dList() {
     model3dList = data || [];
 
     // Cek model mana yang udah terdaftar di credits page (model_credits) + kelengkapan datanya
+    // Pake RPC security-definer biar bisa liat row yang is_active=false juga (RLS publik cuma expose is_active=true)
     registeredModelCredits = {};
     try {
-      var { data: credRows, error: credErr } = await db3d.from('model_credits')
-        .select('model_key, creator_name, creator_url, source_name, source_url, license');
-      if (!credErr && credRows) credRows.forEach(function(r) { if (r.model_key) registeredModelCredits[r.model_key] = r; });
-    } catch(_) { /* diemin, ga fatal buat list utama */ }
+      var { data: credRows, error: credErr } = await db3d.rpc('admin_get_model_credits');
+      if (credErr) {
+        console.error('[model_credits] gagal fetch:', credErr.message, credErr);
+      } else if (credRows) {
+        console.log('[model_credits] fetched', credRows.length, 'rows:', credRows);
+        credRows.forEach(function(r) { if (r.model_key) registeredModelCredits[r.model_key] = r; });
+      }
+    } catch(credCatchErr) {
+      console.error('[model_credits] exception:', credCatchErr);
+    }
 
     renderModel3dList();
   } catch(e) {
@@ -2313,13 +2385,22 @@ async function loadModel3dList() {
   }
 }
 
+function model3dPassesFilters(m) {
+  if (model3dFilter === 'pending' && m.validated) return false;
+  if (model3dFilter === 'validated' && !m.validated) return false;
+
+  if (model3dCreditFilter !== 'all') {
+    var eligible = m.creator_id === CREDITS_ALLOWED_CREATOR_ID;
+    var complete = eligible && isCreditComplete(registeredModelCredits[m.key]);
+    if (model3dCreditFilter === 'registered' && !complete) return false;
+    if (model3dCreditFilter === 'unregistered' && !(eligible && !complete)) return false;
+  }
+  return true;
+}
+
 function renderModel3dList() {
   var area = document.getElementById('model3dListArea');
-  var rows = model3dList.filter(function(m) {
-    if (model3dFilter === 'pending') return !m.validated;
-    if (model3dFilter === 'validated') return !!m.validated;
-    return true;
-  });
+  var rows = model3dList.filter(model3dPassesFilters);
 
   if (rows.length === 0) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">📦</div><p>Tidak ada model di kategori ini.</p></div>';
@@ -2371,11 +2452,7 @@ function renderModel3dList() {
 }
 
 function model3dVisibleRows() {
-  return model3dList.filter(function(m) {
-    if (model3dFilter === 'pending') return !m.validated;
-    if (model3dFilter === 'validated') return !!m.validated;
-    return true;
-  });
+  return model3dList.filter(model3dPassesFilters);
 }
 
 function toggleModel3dSelect(key, checked) {
@@ -2434,6 +2511,32 @@ async function doBulkSetModelValidated(keys, value) {
 // ── Daftarkan model ke 3D Model Credits page (table model_credits) ──
 // Cuma boleh buat model dengan creator_id === CREDITS_ALLOWED_CREATOR_ID (tombolnya juga cuma muncul buat itu)
 var pendingCreditModelKey = null;
+var CREDIT_LICENSE_PRESETS = [
+  'CC BY 4.0', 'CC BY-SA 4.0', 'CC BY-NC 4.0', 'CC0',
+  'Royalty Free (Sketchfab Standard)', 'Proprietary - All Rights Reserved'
+];
+var CREDIT_LICENSE_DESC = {
+  'CC BY 4.0': 'Bebas dipakai, diubah, & disebarluaskan (termasuk komersial), wajib cantumkan kredit ke kreator asli.',
+  'CC BY-SA 4.0': 'Sama kayak CC BY, tapi kalau dibikin turunan/modifikasi wajib disebar pakai lisensi yang sama juga.',
+  'CC BY-NC 4.0': 'Boleh dipakai & diubah, TAPI cuma buat keperluan non-komersial. Wajib kredit kreator.',
+  'CC0': 'Domain publik sepenuhnya — bebas dipakai apa aja tanpa syarat, gak wajib kredit.',
+  'Royalty Free (Sketchfab Standard)': 'Lisensi standar Sketchfab: boleh dipakai sesuai ketentuan platform, tapi biasanya gak boleh dijual ulang aset mentahnya.',
+  'Proprietary - All Rights Reserved': 'Hak cipta penuh di pemiliknya (misal RMRN). Gak boleh didownload, dipakai ulang, atau disebar tanpa izin.',
+  '__custom__': 'Isi manual kalau lisensi modelnya beda dari daftar di atas.'
+};
+
+function toggleCreditLicenseCustom() {
+  var sel = document.getElementById('creditInputLicense');
+  var wrap = document.getElementById('creditLicenseCustomWrap');
+  wrap.style.display = sel.value === '__custom__' ? 'flex' : 'none';
+  document.getElementById('creditLicenseDesc').textContent = CREDIT_LICENSE_DESC[sel.value] || '';
+
+  if (sel.value === 'Proprietary - All Rights Reserved') {
+    document.getElementById('creditInputCreatorUrl').value = 'cusalo.com';
+    document.getElementById('creditInputSourceName').value = 'Cusalo';
+    document.getElementById('creditInputSourceUrl').value = 'cusalo.com';
+  }
+}
 
 function openCreditModal(key) {
   var m = model3dList.find(function(x) { return x.key === key; });
@@ -2449,7 +2552,18 @@ function openCreditModal(key) {
   document.getElementById('creditInputCreatorUrl').value  = existing.creator_url  || '';
   document.getElementById('creditInputSourceName').value  = existing.source_name  || 'Sketchfab';
   document.getElementById('creditInputSourceUrl').value   = existing.source_url   || '';
-  document.getElementById('creditInputLicense').value     = existing.license      || 'CC BY 4.0';
+
+  var licenseVal = existing.license || 'CC BY 4.0';
+  var licenseSel = document.getElementById('creditInputLicense');
+  if (CREDIT_LICENSE_PRESETS.indexOf(licenseVal) !== -1) {
+    licenseSel.value = licenseVal;
+    document.getElementById('creditInputLicenseCustom').value = '';
+  } else {
+    licenseSel.value = '__custom__';
+    document.getElementById('creditInputLicenseCustom').value = licenseVal;
+  }
+  toggleCreditLicenseCustom();
+
   document.getElementById('creditModalErr').textContent = '';
   document.getElementById('creditModal').classList.add('show');
 }
@@ -2462,12 +2576,16 @@ function closeCreditModal() {
 function submitCreditModal() {
   var key = pendingCreditModelKey;
   var errEl = document.getElementById('creditModalErr');
+  var licenseSel = document.getElementById('creditInputLicense').value;
+  var licenseVal = licenseSel === '__custom__'
+    ? document.getElementById('creditInputLicenseCustom').value.trim()
+    : licenseSel;
   var payload = {
     creator_name: document.getElementById('creditInputCreatorName').value.trim(),
     creator_url:  document.getElementById('creditInputCreatorUrl').value.trim(),
     source_name:  document.getElementById('creditInputSourceName').value.trim(),
     source_url:   document.getElementById('creditInputSourceUrl').value.trim(),
-    license:      document.getElementById('creditInputLicense').value.trim()
+    license:      licenseVal
   };
   if (!payload.creator_name || !payload.source_name || !payload.license) {
     errEl.textContent = 'Nama Kreator, Nama Sumber, dan Lisensi wajib diisi.';
@@ -2493,7 +2611,15 @@ async function doRegisterModel3d(key, payload) {
       source_url:   payload.source_url || null,
       license:      payload.license
     };
-    var { error } = await db3d.from('model_credits').upsert(row, { onConflict: 'model_key' });
+    var { error } = await db3d.rpc('admin_upsert_model_credit', {
+      p_model_key:    row.model_key,
+      p_name:         row.name,
+      p_creator_name: row.creator_name,
+      p_creator_url:  row.creator_url,
+      p_source_name:  row.source_name,
+      p_source_url:   row.source_url,
+      p_license:      row.license
+    });
     if (error) throw new Error(error.message);
 
     registeredModelCredits[key] = row;
