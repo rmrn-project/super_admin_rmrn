@@ -342,6 +342,44 @@
       border: 1px solid var(--border);
     }
 
+    /* ── BULK SELECT (pilih semua + eksekusi sekali PIN) ── */
+    .row-select-checkbox {
+      width: 17px; height: 17px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .select-all-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .bulk-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .bulk-bar.show { display: flex; }
+    .bulk-bar-count {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-right: auto;
+    }
+    .bulk-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
     @media (max-width: 600px) {
       .model3d-main { padding: 20px 16px; }
       .model3d-toolbar { gap: 10px; }
@@ -350,6 +388,8 @@
       .model3d-row { flex-wrap: wrap; padding: 12px 14px; }
       .model3d-info { flex-basis: calc(100% - 66px); }
       .model3d-actions { flex-basis: 100%; justify-content: flex-end; margin-top: 8px; }
+      .bulk-bar { flex-direction: column; align-items: stretch; }
+      .bulk-bar-count { margin-right: 0; }
     }
 
     /* Pesanan tab (reuses model3d-* layout classes, own badge/thumb colors) */
@@ -1116,7 +1156,17 @@
           <button class="model3d-filter-btn" id="m3dFilterValidated" onclick="setModel3dFilter('validated')">✅ Tervalidasi</button>
           <button class="model3d-filter-btn" id="m3dFilterAll" onclick="setModel3dFilter('all')">Semua</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadModel3dList()">↻ Refresh</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="m3dSelectAllChk" onclick="toggleSelectAllModel3d(this.checked)"> Pilih Semua</label>
+          <button class="btn btn-ghost btn-sm" onclick="loadModel3dList()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="bulk-bar" id="m3dBulkBar">
+        <span class="bulk-bar-count" id="m3dBulkCount">0 dipilih</span>
+        <div class="bulk-bar-actions">
+          <button class="btn btn-sm btn-approve" onclick="confirmBulkModel3d(true)">✓ Approve Terpilih</button>
+          <button class="btn btn-sm btn-reject" onclick="confirmBulkModel3d(false)">↩ Batalkan Terpilih</button>
+        </div>
       </div>
       <div id="model3dListArea">
         <div class="empty-state">
@@ -1136,7 +1186,17 @@
           <button class="model3d-filter-btn" id="ordFilterPaid" onclick="setOrdersFilter('paid')">✅ Approved</button>
           <button class="model3d-filter-btn" id="ordFilterAll" onclick="setOrdersFilter('all')">Semua</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadOrders()">↻ Refresh</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="ordSelectAllChk" onclick="toggleSelectAllOrders(this.checked)"> Pilih Semua</label>
+          <button class="btn btn-ghost btn-sm" onclick="loadOrders()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="bulk-bar" id="ordBulkBar">
+        <span class="bulk-bar-count" id="ordBulkCount">0 dipilih</span>
+        <div class="bulk-bar-actions">
+          <button class="btn btn-sm btn-approve" onclick="confirmBulkApprovePayment(true)">✓ Approve Terpilih</button>
+          <button class="btn btn-sm btn-ghost" onclick="confirmBulkApprovePayment(false)">↩ Batalkan Terpilih</button>
+        </div>
       </div>
       <div id="orderListArea">
         <div class="empty-state">
@@ -1157,7 +1217,18 @@
           <button class="model3d-filter-btn" id="poFilterProblem" onclick="setPayoutFilter('problem')">⚠️ Bermasalah</button>
           <button class="model3d-filter-btn" id="poFilterAll" onclick="setPayoutFilter('all')">Semua</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadPayoutRequests()">↻ Refresh</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="poSelectAllChk" onclick="toggleSelectAllPayout(this.checked)"> Pilih Semua</label>
+          <button class="btn btn-ghost btn-sm" onclick="loadPayoutRequests()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="bulk-bar" id="poBulkBar">
+        <span class="bulk-bar-count" id="poBulkCount">0 dipilih</span>
+        <div class="bulk-bar-actions">
+          <button class="btn btn-sm btn-approve" onclick="confirmBulkPayoutStatus('verified')">✓ Verifikasi Terpilih</button>
+          <button class="btn btn-sm btn-reject" onclick="confirmBulkPayoutStatus('problem')">⚠ Tandai Bermasalah</button>
+          <button class="btn btn-sm btn-ghost" onclick="confirmBulkPayoutStatus('pending')">↩ Reset Terpilih</button>
+        </div>
       </div>
       <div id="payoutListArea">
         <div class="empty-state">
@@ -1551,6 +1622,7 @@ async function showUserDetail(uid, profileData) {
     // Products
     var { data: prods } = await db.from('seller_products').select('*').eq('seller_id', uid).order('created_at', { ascending: false });
     currentProducts = prods || [];
+    selectedProductIds.clear();
 
     var p = currentProfile;
     var email = shop.email || '—';
@@ -1627,7 +1699,16 @@ async function showUserDetail(uid, profileData) {
         '<div class="products-section">' +
           '<div class="products-header">' +
             '<div class="products-title">📦 Produk Seller <span style="font-weight:400;font-size:10px;letter-spacing:0">(' + currentProducts.length + ' item)</span></div>' +
-            '<button class="btn btn-primary btn-sm" onclick="showAddProduct(\'' + uid + '\')">+ Tambah Produk</button>' +
+            '<div style="display:flex;align-items:center;gap:12px">' +
+              '<label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="prodSelectAllChk" onclick="toggleSelectAllProducts(this.checked)"> Pilih Semua</label>' +
+              '<button class="btn btn-primary btn-sm" onclick="showAddProduct(\'' + uid + '\')">+ Tambah Produk</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bulk-bar" id="prodBulkBar">' +
+            '<span class="bulk-bar-count" id="prodBulkCount">0 dipilih</span>' +
+            '<div class="bulk-bar-actions">' +
+              '<button class="btn btn-sm btn-reject" onclick="confirmBulkDeleteProducts()">🗑 Hapus Terpilih</button>' +
+            '</div>' +
           '</div>' +
           '<div id="products-list-' + uid + '">' + productsHTML + '</div>' +
         '</div>' +
@@ -1796,17 +1877,20 @@ function cancelTokoEdit(uid) {
 }
 
 // ── PRODUCTS ──
+var selectedProductIds = new Set();
+
 function renderProductsList(prods) {
   if (!prods || !prods.length) return '<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">Belum ada produk.</div>';
   return prods.map(function(pr, i) {
     var isOn = pr.is_active !== false;
     return '<div class="product-row" id="prod-row-' + pr.id + '">' +
-      '<div class="product-row-header" onclick="toggleProdExpand(\'' + pr.id + '\')">' +
-        '<div>' +
+      '<div class="product-row-header">' +
+        '<input type="checkbox" class="row-select-checkbox" onclick="event.stopPropagation(); toggleProductSelect(\'' + pr.id + '\', this.checked)" ' + (selectedProductIds.has(String(pr.id)) ? 'checked' : '') + ' />' +
+        '<div style="flex:1;min-width:0;cursor:pointer" onclick="toggleProdExpand(\'' + pr.id + '\')">' +
           '<div class="product-name">' + esc(pr.name) + '</div>' +
           '<div class="product-meta">' + esc(pr.category || '—') + ' · Rp ' + (pr.price ? pr.price.toLocaleString('id') : '0') + ' · MOQ ' + (pr.moq || '—') + ' ' + esc(pr.unit || 'pcs') + '</div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;align-items:center">' +
+        '<div style="display:flex;gap:8px;align-items:center;cursor:pointer" onclick="toggleProdExpand(\'' + pr.id + '\')">' +
           '<span class="product-active-badge ' + (isOn ? 'on' : 'off') + '">' + (isOn ? '● Aktif' : '● Nonaktif') + '</span>' +
           '<span style="color:var(--text-muted);font-size:12px">▼</span>' +
         '</div>' +
@@ -1816,6 +1900,54 @@ function renderProductsList(prods) {
       '</div>' +
     '</div>';
   }).join('');
+}
+
+function toggleProductSelect(id, checked) {
+  var key = String(id);
+  if (checked) selectedProductIds.add(key); else selectedProductIds.delete(key);
+  updateProductsBulkBar();
+}
+
+function toggleSelectAllProducts(checked) {
+  if (checked) currentProducts.forEach(function(p) { selectedProductIds.add(String(p.id)); });
+  else selectedProductIds.clear();
+  var listEl = document.getElementById('products-list-' + currentUID);
+  if (listEl) listEl.innerHTML = renderProductsList(currentProducts);
+  updateProductsBulkBar();
+}
+
+function updateProductsBulkBar() {
+  var bar = document.getElementById('prodBulkBar');
+  var cnt = document.getElementById('prodBulkCount');
+  var chkAll = document.getElementById('prodSelectAllChk');
+  var n = selectedProductIds.size;
+  if (cnt) cnt.textContent = n + ' dipilih';
+  if (bar) bar.classList.toggle('show', n > 0);
+  if (chkAll) chkAll.checked = currentProducts.length > 0 && currentProducts.every(function(p) { return selectedProductIds.has(String(p.id)); });
+}
+
+function confirmBulkDeleteProducts() {
+  var ids = Array.from(selectedProductIds);
+  if (!ids.length) { toast('Belum ada produk yang dipilih.', true); return; }
+  openPinModal('confirm', function() { doBulkDeleteProducts(ids); },
+    '⚠️ Konfirmasi PIN buat menghapus ' + ids.length + ' produk sekaligus. Tindakan tidak bisa dibatalkan.');
+}
+
+async function doBulkDeleteProducts(ids) {
+  try {
+    var { error } = await db.from('seller_products').delete().in('id', ids);
+    if (error) throw new Error(error.message);
+    currentProducts = currentProducts.filter(function(p) { return ids.indexOf(String(p.id)) === -1; });
+    ids.forEach(function(id) {
+      selectedProductIds.delete(String(id));
+      var row = document.getElementById('prod-row-' + id);
+      if (row) row.remove();
+    });
+    updateProductsBulkBar();
+    toast('🗑 ' + ids.length + ' produk dihapus sekaligus.');
+  } catch(e) {
+    toast('Gagal hapus massal: ' + e.message, true);
+  }
 }
 
 function toggleProdExpand(id) {
@@ -1961,6 +2093,8 @@ async function deleteProductActual(id) {
     var { error } = await db.from('seller_products').delete().eq('id', id);
     if (error) throw new Error(error.message);
     currentProducts = currentProducts.filter(function(p){ return p.id !== id; });
+    selectedProductIds.delete(String(id));
+    updateProductsBulkBar();
     var row = document.getElementById('prod-row-' + id);
     if (row) row.remove();
     toast('🗑 Produk dihapus.');
@@ -2043,6 +2177,7 @@ function closeLightbox() {
 // ════════════════════════════════════════════════
 var model3dList = [];
 var model3dFilter = 'pending';
+var selectedModel3dKeys = new Set();
 
 function switchAdminTab(tab) {
   document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
@@ -2062,10 +2197,14 @@ function switchAdminTab(tab) {
   if (tab === 'pencairan' && payoutList.length === 0) loadPayoutRequests();
   if (tab === 'broadcast') { loadBroadcastCount(); loadBroadcastHistory(); }
   if (tab === 'logakses') loadAuditLog();
+  if (tab !== 'model3d')   { selectedModel3dKeys.clear(); }
+  if (tab !== 'pesanan')   { selectedOrderIds.clear(); }
+  if (tab !== 'pencairan') { selectedPayoutIds.clear(); }
 }
 
 function setModel3dFilter(f) {
   model3dFilter = f;
+  selectedModel3dKeys.clear();
   document.getElementById('m3dFilterPending').classList.toggle('active', f === 'pending');
   document.getElementById('m3dFilterValidated').classList.toggle('active', f === 'validated');
   document.getElementById('m3dFilterAll').classList.toggle('active', f === 'all');
@@ -2074,6 +2213,7 @@ function setModel3dFilter(f) {
 
 async function loadModel3dList() {
   var area = document.getElementById('model3dListArea');
+  selectedModel3dKeys.clear();
   area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar model...</div></div>';
   try {
     var { data, error } = await db3d.from('model_registry')
@@ -2097,6 +2237,7 @@ function renderModel3dList() {
 
   if (rows.length === 0) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">📦</div><p>Tidak ada model di kategori ini.</p></div>';
+    updateModel3dBulkBar();
     return;
   }
 
@@ -2114,6 +2255,7 @@ function renderModel3dList() {
 
     return (
       '<div class="model3d-row" id="m3d-row-' + esc(m.key) + '">' +
+        '<input type="checkbox" class="row-select-checkbox" onclick="toggleModel3dSelect(\'' + esc(m.key) + '\', this.checked)" ' + (selectedModel3dKeys.has(m.key) ? 'checked' : '') + ' />' +
         '<div class="model3d-thumb-admin">' + thumbHtml + '</div>' +
         '<div class="model3d-info">' +
           '<div class="model3d-key">' + esc(m.label || m.key) + '</div>' +
@@ -2131,6 +2273,68 @@ function renderModel3dList() {
       '</div>'
     );
   }).join('') + '</div>';
+  updateModel3dBulkBar();
+}
+
+function model3dVisibleRows() {
+  return model3dList.filter(function(m) {
+    if (model3dFilter === 'pending') return !m.validated;
+    if (model3dFilter === 'validated') return !!m.validated;
+    return true;
+  });
+}
+
+function toggleModel3dSelect(key, checked) {
+  if (checked) selectedModel3dKeys.add(key); else selectedModel3dKeys.delete(key);
+  updateModel3dBulkBar();
+}
+
+function toggleSelectAllModel3d(checked) {
+  var rows = model3dVisibleRows();
+  if (checked) rows.forEach(function(m) { selectedModel3dKeys.add(m.key); });
+  else selectedModel3dKeys.clear();
+  renderModel3dList();
+}
+
+function updateModel3dBulkBar() {
+  var bar = document.getElementById('m3dBulkBar');
+  var cnt = document.getElementById('m3dBulkCount');
+  var chkAll = document.getElementById('m3dSelectAllChk');
+  var n = selectedModel3dKeys.size;
+  if (cnt) cnt.textContent = n + ' dipilih';
+  if (bar) bar.classList.toggle('show', n > 0);
+  if (chkAll) {
+    var rows = model3dVisibleRows();
+    chkAll.checked = rows.length > 0 && rows.every(function(m) { return selectedModel3dKeys.has(m.key); });
+  }
+}
+
+var pendingBulkModel3dValue = false;
+
+function confirmBulkModel3d(value) {
+  var keys = Array.from(selectedModel3dKeys);
+  if (!keys.length) { toast('Belum ada model yang dipilih.', true); return; }
+  pendingBulkModel3dValue = value;
+  var msg = value
+    ? 'Konfirmasi PIN buat approve ' + keys.length + ' model 3D sekaligus.'
+    : 'Konfirmasi PIN buat membatalkan validasi ' + keys.length + ' model 3D sekaligus.';
+  openPinModal('confirm', function() { doBulkSetModelValidated(keys, pendingBulkModel3dValue); }, msg);
+}
+
+async function doBulkSetModelValidated(keys, value) {
+  try {
+    var { error } = await db3d.from('model_registry').update({ validated: value }).in('key', keys);
+    if (error) throw new Error(error.message);
+    keys.forEach(function(k) {
+      var item = model3dList.find(function(m) { return m.key === k; });
+      if (item) item.validated = value;
+      selectedModel3dKeys.delete(k);
+    });
+    renderModel3dList();
+    toast(value ? '✅ ' + keys.length + ' model disetujui sekaligus!' : '↩ Validasi ' + keys.length + ' model dibatalkan sekaligus.');
+  } catch(e) {
+    toast('Gagal update massal: ' + e.message, true);
+  }
 }
 
 async function setModelValidated(key, value) {
@@ -2162,6 +2366,7 @@ function confirmSetModelValidated(key, value) {
 // ════════════════════════════════════════════════
 var ordersList = [];
 var ordersFilter = 'pending';
+var selectedOrderIds = new Set();
 
 function ov(o, keys) {
   for (var i = 0; i < keys.length; i++) {
@@ -2178,6 +2383,7 @@ function formatRupiah(n) {
 
 async function loadOrders() {
   var area = document.getElementById('orderListArea');
+  selectedOrderIds.clear();
   area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar pesanan...</div></div>';
   try {
     var { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
@@ -2191,6 +2397,7 @@ async function loadOrders() {
 
 function setOrdersFilter(f) {
   ordersFilter = f;
+  selectedOrderIds.clear();
   document.getElementById('ordFilterPending').classList.toggle('active', f === 'pending');
   document.getElementById('ordFilterPaid').classList.toggle('active', f === 'paid');
   document.getElementById('ordFilterAll').classList.toggle('active', f === 'all');
@@ -2206,6 +2413,7 @@ function renderOrders() {
   });
   if (!rows.length) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">🧾</div><p>Tidak ada pesanan di kategori ini.</p></div>';
+    updateOrdersBulkBar();
     return;
   }
   area.innerHTML = '<div class="model3d-list">' + rows.map(function(o) {
@@ -2229,6 +2437,7 @@ function renderOrders() {
       : '<button class="btn btn-sm btn-approve" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', false)">✓ Approve</button>';
     return (
       '<div class="model3d-row" id="ord-row-' + esc(o.id) + '">' +
+        '<input type="checkbox" class="row-select-checkbox" onclick="toggleOrderSelect(\'' + esc(o.id) + '\', this.checked)" ' + (selectedOrderIds.has(String(o.id)) ? 'checked' : '') + ' />' +
         '<div class="order-thumb-admin" ' + thumbClick + '>' + thumbHtml + '</div>' +
         '<div class="model3d-info">' +
           '<div class="order-code">' + esc(code) + '</div>' +
@@ -2244,6 +2453,69 @@ function renderOrders() {
       '</div>'
     );
   }).join('') + '</div>';
+  updateOrdersBulkBar();
+}
+
+function ordersVisibleRows() {
+  return ordersList.filter(function(o) {
+    if (ordersFilter === 'pending') return o.payment_status !== true;
+    if (ordersFilter === 'paid') return o.payment_status === true;
+    return true;
+  });
+}
+
+function toggleOrderSelect(id, checked) {
+  var key = String(id);
+  if (checked) selectedOrderIds.add(key); else selectedOrderIds.delete(key);
+  updateOrdersBulkBar();
+}
+
+function toggleSelectAllOrders(checked) {
+  var rows = ordersVisibleRows();
+  if (checked) rows.forEach(function(o) { selectedOrderIds.add(String(o.id)); });
+  else selectedOrderIds.clear();
+  renderOrders();
+}
+
+function updateOrdersBulkBar() {
+  var bar = document.getElementById('ordBulkBar');
+  var cnt = document.getElementById('ordBulkCount');
+  var chkAll = document.getElementById('ordSelectAllChk');
+  var n = selectedOrderIds.size;
+  if (cnt) cnt.textContent = n + ' dipilih';
+  if (bar) bar.classList.toggle('show', n > 0);
+  if (chkAll) {
+    var rows = ordersVisibleRows();
+    chkAll.checked = rows.length > 0 && rows.every(function(o) { return selectedOrderIds.has(String(o.id)); });
+  }
+}
+
+var pendingBulkApprove = true;
+
+function confirmBulkApprovePayment(approve) {
+  var ids = Array.from(selectedOrderIds);
+  if (!ids.length) { toast('Belum ada pesanan yang dipilih.', true); return; }
+  pendingBulkApprove = approve;
+  var msg = approve
+    ? 'Konfirmasi PIN buat approve pembayaran ' + ids.length + ' pesanan sekaligus.'
+    : 'Konfirmasi PIN buat membatalkan approval ' + ids.length + ' pesanan sekaligus.';
+  openPinModal('confirm', function() { doBulkApprovePayment(ids, pendingBulkApprove); }, msg);
+}
+
+async function doBulkApprovePayment(ids, approve) {
+  try {
+    var { error } = await db.from('orders').update({ payment_status: approve }).in('id', ids);
+    if (error) throw new Error(error.message);
+    ids.forEach(function(id) {
+      var item = ordersList.find(function(o) { return String(o.id) === String(id); });
+      if (item) item.payment_status = approve;
+      selectedOrderIds.delete(String(id));
+    });
+    renderOrders();
+    toast(approve ? '✅ ' + ids.length + ' pembayaran disetujui sekaligus!' : '↩ ' + ids.length + ' approval dibatalkan sekaligus.');
+  } catch(e) {
+    toast('Gagal update massal: ' + e.message, true);
+  }
 }
 
 async function doApprovePayment(orderId, revert) {
@@ -2283,6 +2555,7 @@ function confirmApprovePayment(orderId, revert) {
 // ════════════════════════════════════════════════
 var payoutList = [];
 var payoutFilter = 'pending';
+var selectedPayoutIds = new Set();
 
 var PAYOUT_TO_ORDER_STATUS = {
   verified: 'paid',
@@ -2292,6 +2565,7 @@ var PAYOUT_TO_ORDER_STATUS = {
 
 async function loadPayoutRequests() {
   var area = document.getElementById('payoutListArea');
+  selectedPayoutIds.clear();
   area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar pencairan...</div></div>';
   try {
     var { data, error } = await db.from('payout_requests').select('*').order('requested_at', { ascending: false }).limit(200);
@@ -2305,6 +2579,7 @@ async function loadPayoutRequests() {
 
 function setPayoutFilter(f) {
   payoutFilter = f;
+  selectedPayoutIds.clear();
   document.getElementById('poFilterPending').classList.toggle('active', f === 'pending');
   document.getElementById('poFilterVerified').classList.toggle('active', f === 'verified');
   document.getElementById('poFilterProblem').classList.toggle('active', f === 'problem');
@@ -2320,6 +2595,7 @@ function renderPayoutRequests() {
   });
   if (!rows.length) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">💸</div><p>Tidak ada permintaan pencairan di kategori ini.</p></div>';
+    updatePayoutBulkBar();
     return;
   }
   area.innerHTML = '<div class="model3d-list">' + rows.map(function(r) {
@@ -2336,6 +2612,7 @@ function renderPayoutRequests() {
       : ('<button class="btn btn-sm btn-ghost" onclick="confirmSetPayoutStatus(\'' + esc(r.id) + '\', \'pending\')">↩ Reset ke Menunggu</button>');
     return (
       '<div class="model3d-row" id="po-row-' + esc(r.id) + '">' +
+        '<input type="checkbox" class="row-select-checkbox" onclick="togglePayoutSelect(\'' + esc(r.id) + '\', this.checked)" ' + (selectedPayoutIds.has(String(r.id)) ? 'checked' : '') + ' />' +
         '<div class="order-thumb-admin">💸</div>' +
         '<div class="model3d-info">' +
           '<div class="order-code">' + esc(r.seller_name || r.seller_email || r.seller_id) + '</div>' +
@@ -2351,6 +2628,94 @@ function renderPayoutRequests() {
       '</div>'
     );
   }).join('') + '</div>';
+  updatePayoutBulkBar();
+}
+
+function payoutVisibleRows() {
+  return payoutList.filter(function(r) {
+    if (payoutFilter === 'all') return true;
+    return (r.status || 'pending') === payoutFilter;
+  });
+}
+
+function togglePayoutSelect(id, checked) {
+  var key = String(id);
+  if (checked) selectedPayoutIds.add(key); else selectedPayoutIds.delete(key);
+  updatePayoutBulkBar();
+}
+
+function toggleSelectAllPayout(checked) {
+  var rows = payoutVisibleRows();
+  if (checked) rows.forEach(function(r) { selectedPayoutIds.add(String(r.id)); });
+  else selectedPayoutIds.clear();
+  renderPayoutRequests();
+}
+
+function updatePayoutBulkBar() {
+  var bar = document.getElementById('poBulkBar');
+  var cnt = document.getElementById('poBulkCount');
+  var chkAll = document.getElementById('poSelectAllChk');
+  var n = selectedPayoutIds.size;
+  if (cnt) cnt.textContent = n + ' dipilih';
+  if (bar) bar.classList.toggle('show', n > 0);
+  if (chkAll) {
+    var rows = payoutVisibleRows();
+    chkAll.checked = rows.length > 0 && rows.every(function(r) { return selectedPayoutIds.has(String(r.id)); });
+  }
+}
+
+var pendingBulkPayoutStatus = null;
+
+function confirmBulkPayoutStatus(newStatus) {
+  var ids = Array.from(selectedPayoutIds);
+  if (!ids.length) { toast('Belum ada pencairan yang dipilih.', true); return; }
+  pendingBulkPayoutStatus = newStatus;
+  var note = null;
+  if (newStatus === 'problem') {
+    note = window.prompt('Catatan buat semua seller terpilih (opsional), misal: "Rekening tidak sesuai nama":', '') || '';
+  }
+  var msg =
+    newStatus === 'verified' ? 'Konfirmasi PIN buat menandai ' + ids.length + ' pencairan SUDAH ditransfer sekaligus.' :
+    newStatus === 'problem'  ? 'Konfirmasi PIN buat menandai ' + ids.length + ' pencairan bermasalah sekaligus. Saldo bakal balik ke seller.' :
+    'Konfirmasi PIN buat reset ' + ids.length + ' pencairan ke menunggu lagi sekaligus.';
+  openPinModal('confirm', function() { doBulkSetPayoutStatus(ids, pendingBulkPayoutStatus, note); }, msg);
+}
+
+async function doBulkSetPayoutStatus(ids, newStatus, note) {
+  try {
+    var payload = { status: newStatus };
+    if (newStatus === 'verified' || newStatus === 'problem') payload.processed_at = new Date().toISOString();
+    if (newStatus === 'problem' && note) payload.admin_note = note;
+    if (newStatus === 'pending') { payload.processed_at = null; payload.admin_note = null; }
+
+    var { error } = await db.from('payout_requests').update(payload).in('id', ids);
+    if (error) throw new Error(error.message);
+
+    // Sinkron balik ke orders.payout_status buat semua order_code dari semua request terpilih
+    var allCodes = [];
+    ids.forEach(function(id) {
+      var row = payoutList.find(function(r) { return String(r.id) === String(id); });
+      if (row && row.order_codes) allCodes = allCodes.concat(row.order_codes);
+    });
+    if (allCodes.length) {
+      var { error: oErr } = await db.from('orders').update({ payout_status: PAYOUT_TO_ORDER_STATUS[newStatus] }).in('order_code', allCodes);
+      if (oErr) throw new Error('Status pencairan tersimpan, tapi gagal sinkron ke orders: ' + oErr.message);
+    }
+
+    ids.forEach(function(id) {
+      var row = payoutList.find(function(r) { return String(r.id) === String(id); });
+      if (row) Object.assign(row, payload);
+      selectedPayoutIds.delete(String(id));
+    });
+    renderPayoutRequests();
+    toast(
+      newStatus === 'verified' ? '✅ ' + ids.length + ' pencairan diverifikasi sekaligus.' :
+      newStatus === 'problem'  ? '⚠️ ' + ids.length + ' pencairan ditandai bermasalah sekaligus.' :
+      '↩ ' + ids.length + ' pencairan direset ke pending sekaligus.'
+    );
+  } catch(e) {
+    toast('Gagal update massal: ' + e.message, true);
+  }
 }
 
 async function doSetPayoutStatus(id, newStatus, note) {
