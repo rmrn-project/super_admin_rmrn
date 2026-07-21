@@ -2179,6 +2179,10 @@ var model3dList = [];
 var model3dFilter = 'pending';
 var selectedModel3dKeys = new Set();
 
+// ── Daftarkan ke 3D Model Credits page — cuma buat creator tertentu ──
+var CREDITS_ALLOWED_CREATOR_ID = '5a60a820-b0e7-4f72-b171-179324ba2784';
+var registeredModelKeys = new Set();
+
 function switchAdminTab(tab) {
   document.getElementById('tabProfil').style.display = tab === 'profil' ? 'flex' : 'none';
   document.getElementById('tab3DKreator').style.display = tab === 'model3d' ? 'block' : 'none';
@@ -2221,6 +2225,14 @@ async function loadModel3dList() {
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     model3dList = data || [];
+
+    // Cek model mana yang udah terdaftar di credits page (model_credits)
+    registeredModelKeys.clear();
+    try {
+      var { data: credRows, error: credErr } = await db3d.from('model_credits').select('model_key');
+      if (!credErr && credRows) credRows.forEach(function(r) { if (r.model_key) registeredModelKeys.add(r.model_key); });
+    } catch(_) { /* diemin, ga fatal buat list utama */ }
+
     renderModel3dList();
   } catch(e) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Gagal memuat: ' + esc(e.message) + '</p></div>';
@@ -2253,6 +2265,13 @@ function renderModel3dList() {
       ? '<button class="btn btn-sm btn-reject" onclick="confirmSetModelValidated(\'' + esc(m.key) + '\', false)">Batalkan</button>'
       : '<button class="btn btn-sm btn-approve" onclick="confirmSetModelValidated(\'' + esc(m.key) + '\', true)">✓ Approve</button>';
 
+    var registerBtn = '';
+    if (m.creator_id === CREDITS_ALLOWED_CREATOR_ID) {
+      registerBtn = registeredModelKeys.has(m.key)
+        ? '<button class="btn btn-sm btn-ghost" disabled style="opacity:0.5;cursor:default">✅ Terdaftar</button>'
+        : '<button class="btn btn-sm btn-approve" onclick="confirmRegisterModel3d(\'' + esc(m.key) + '\')">📋 Daftarkan</button>';
+    }
+
     return (
       '<div class="model3d-row" id="m3d-row-' + esc(m.key) + '">' +
         '<input type="checkbox" class="row-select-checkbox" onclick="toggleModel3dSelect(\'' + esc(m.key) + '\', this.checked)" ' + (selectedModel3dKeys.has(m.key) ? 'checked' : '') + ' />' +
@@ -2269,6 +2288,7 @@ function renderModel3dList() {
         '<div class="model3d-actions">' +
           (m.glb_url ? '<a class="btn btn-sm btn-glb-link" href="' + esc(m.glb_url) + '" target="_blank" rel="noopener">GLB</a>' : '') +
           actionBtn +
+          registerBtn +
         '</div>' +
       '</div>'
     );
@@ -2334,6 +2354,39 @@ async function doBulkSetModelValidated(keys, value) {
     toast(value ? '✅ ' + keys.length + ' model disetujui sekaligus!' : '↩ Validasi ' + keys.length + ' model dibatalkan sekaligus.');
   } catch(e) {
     toast('Gagal update massal: ' + e.message, true);
+  }
+}
+
+// ── Daftarkan model ke 3D Model Credits page (table model_credits) ──
+// Cuma boleh buat model dengan creator_id === CREDITS_ALLOWED_CREATOR_ID (tombolnya juga cuma muncul buat itu)
+function confirmRegisterModel3d(key) {
+  var m = model3dList.find(function(x) { return x.key === key; });
+  if (!m) { toast('Model tidak ditemukan (coba refresh).', true); return; }
+  if (m.creator_id !== CREDITS_ALLOWED_CREATOR_ID) { toast('Model ini tidak diizinkan untuk didaftarkan.', true); return; }
+  if (registeredModelKeys.has(key)) { toast('Model ini sudah terdaftar.', true); return; }
+  openPinModal('confirm', function() { doRegisterModel3d(key); }, 'Konfirmasi PIN buat mendaftarkan model ini ke halaman 3D Model Credits.');
+}
+
+async function doRegisterModel3d(key) {
+  try {
+    var m = model3dList.find(function(x) { return x.key === key; });
+    if (!m) throw new Error('Model tidak ditemukan (coba refresh).');
+    if (m.creator_id !== CREDITS_ALLOWED_CREATOR_ID) throw new Error('Model ini tidak diizinkan untuk didaftarkan.');
+
+    var { error } = await db3d.from('model_credits').insert({
+      model_key:    m.key,
+      name:         m.label || m.key,
+      creator_name: m.creator_name || 'Unknown'
+    });
+    if (error) {
+      if (error.code === '23505') throw new Error('Model ini sudah terdaftar sebelumnya.');
+      throw new Error(error.message);
+    }
+    registeredModelKeys.add(key);
+    renderModel3dList();
+    toast('📋 Model "' + (m.label || m.key) + '" didaftarkan ke halaman credits!');
+  } catch(e) {
+    toast('Gagal mendaftarkan: ' + e.message, true);
   }
 }
 
