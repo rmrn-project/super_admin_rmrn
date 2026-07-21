@@ -6,7 +6,7 @@
   <title>Cusalo Super Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="push-subscribe.js"></script>
+  <script src="/push-subscribe.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -1058,6 +1058,7 @@
       <button class="topbar-tab" id="tabBtnPesanan" onclick="switchAdminTab('pesanan')">Pesanan</button>
       <button class="topbar-tab" id="tabBtnPencairan" onclick="switchAdminTab('pencairan')">💸 Pencairan</button>
       <button class="topbar-tab" id="tabBtnBroadcast" onclick="switchAdminTab('broadcast')">📢 Broadcast</button>
+      <button class="topbar-tab" id="tabBtnLogAkses" onclick="switchAdminTab('logakses')">🧾 Log Akses</button>
     </div>
   </div>
 
@@ -1199,6 +1200,25 @@
     </div>
   </div>
 
+  <!-- Log Akses tab -->
+  <div id="tabLogAkses" style="display:none;">
+    <div class="model3d-main">
+      <div class="model3d-toolbar">
+        <div class="model3d-filter">
+          <button class="model3d-filter-btn active" id="auditFilterAll" onclick="setAuditLogFilter('all')">Semua</button>
+          <button class="model3d-filter-btn" id="auditFilterWarning" onclick="setAuditLogFilter('warning')">⚠️ Bukan Lewat Sistem Resmi</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">↻ Refresh</button>
+      </div>
+      <div id="auditLogArea">
+        <div class="empty-state">
+          <div class="es-icon">🧾</div>
+          <p>Memuat log akses...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- PIN confirm/setup modal -->
@@ -1240,7 +1260,7 @@ async function enablePushNotif() {
     return;
   }
   try {
-    await subscribeAdminToPush(db, VAPID_PUBLIC_KEY);
+    await subscribeAdminToPush(db, PUSH_VAPID_PUBLIC_KEY);
     toast('🔔 Notifikasi aktif di device ini!');
   } catch (e) {
     console.error(e);
@@ -2030,15 +2050,18 @@ function switchAdminTab(tab) {
   document.getElementById('tabPesanan').style.display = tab === 'pesanan' ? 'block' : 'none';
   document.getElementById('tabPencairan').style.display = tab === 'pencairan' ? 'block' : 'none';
   document.getElementById('tabBroadcast').style.display = tab === 'broadcast' ? 'block' : 'none';
+  document.getElementById('tabLogAkses').style.display = tab === 'logakses' ? 'block' : 'none';
   document.getElementById('tabBtnProfil').classList.toggle('active', tab === 'profil');
   document.getElementById('tabBtnModel3d').classList.toggle('active', tab === 'model3d');
   document.getElementById('tabBtnPesanan').classList.toggle('active', tab === 'pesanan');
   document.getElementById('tabBtnPencairan').classList.toggle('active', tab === 'pencairan');
   document.getElementById('tabBtnBroadcast').classList.toggle('active', tab === 'broadcast');
+  document.getElementById('tabBtnLogAkses').classList.toggle('active', tab === 'logakses');
   if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
   if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
   if (tab === 'pencairan' && payoutList.length === 0) loadPayoutRequests();
   if (tab === 'broadcast') { loadBroadcastCount(); loadBroadcastHistory(); }
+  if (tab === 'logakses') loadAuditLog();
 }
 
 function setModel3dFilter(f) {
@@ -2578,6 +2601,131 @@ async function deleteBroadcastActual(idx) {
   } catch(e) {
     toast('Gagal hapus: ' + e.message, true);
   }
+}
+
+// ════════════════════════════════════════════════
+// LOG AKSES — riwayat siapa ngapain di tabel apa (dari trigger audit_log di database)
+// ════════════════════════════════════════════════
+var auditLogItems = [];
+var auditLogUserMap = {};
+var auditLogFilter = 'all'; // 'all' atau 'warning' (yang bukan lewat sistem resmi)
+
+// Nama tabel versi manusia, biar gak muncul nama teknis di layar
+var AUDIT_TABLE_LABELS = {
+  profiles:               'Profil & Toko',
+  seller_products:        'Produk Jualan',
+  orders:                 'Pesanan',
+  model_registry:         'Model 3D',
+  payout_requests:        'Pencairan Dana',
+  bank_account:           'Rekening Bank',
+  data_hpp:               'Kalkulator HPP',
+  notifications:          'Notifikasi',
+  product_loves:          'Like Produk',
+  reviews:                'Ulasan',
+  users:                  'Data User',
+  super_admin:            'Akun Super Admin',
+  ai_credits:             'Kredit AI',
+  ai_orders:              'Pesanan AI',
+  b2b_data:               'Data B2B',
+  complaints:             'Komplain',
+  design_drafts:          'Draft Desain',
+  nego_messages:          'Pesan Nego',
+  nego_threads:           'Thread Nego',
+  order_auto_cancel_log:  'Log Auto-Cancel Pesanan',
+  platform_config:        'Konfigurasi Platform',
+  push_subscriptions:     'Langganan Notifikasi Push',
+  va_payments:            'Pembayaran Virtual Account'
+};
+
+// Kata kerja versi manusia buat tiap jenis operasi
+var AUDIT_OP_LABELS = {
+  INSERT: 'menambahkan data baru',
+  UPDATE: 'mengubah data',
+  DELETE: 'menghapus data'
+};
+
+// Penjelasan role versi manusia
+var AUDIT_ROLE_LABELS = {
+  service_role:  'Sistem/Admin resmi',
+  authenticated: 'User yang sudah login',
+  anon:          'Pengunjung (belum login)'
+};
+
+async function loadAuditLog() {
+  var area = document.getElementById('auditLogArea');
+  if (!area || !db) return;
+  area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat log akses...</div></div>';
+  try {
+    var { data, error } = await db.from('audit_log')
+      .select('id, table_name, operation, role, user_id, record_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (error) throw new Error(error.message);
+    auditLogItems = data || [];
+
+    // Ambil nama asli user (bukan cuma UUID) buat ditampilin
+    var uids = Array.from(new Set(auditLogItems.map(function(r){ return r.user_id; }).filter(Boolean)));
+    auditLogUserMap = {};
+    if (uids.length) {
+      var { data: profs } = await db.from('profiles').select('id, full_name, store_name').in('id', uids);
+      (profs || []).forEach(function(p) { auditLogUserMap[p.id] = p.full_name || p.store_name || null; });
+    }
+
+    renderAuditLog();
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Gagal memuat log akses: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function setAuditLogFilter(f) {
+  auditLogFilter = f;
+  document.getElementById('auditFilterAll').classList.toggle('active', f === 'all');
+  document.getElementById('auditFilterWarning').classList.toggle('active', f === 'warning');
+  renderAuditLog();
+}
+
+function renderAuditLog() {
+  var area = document.getElementById('auditLogArea');
+  if (!area) return;
+  var rows = auditLogItems.filter(function(r) {
+    if (auditLogFilter === 'warning') return r.role !== 'service_role';
+    return true;
+  });
+  if (!rows.length) {
+    area.innerHTML = '<div class="empty-state"><div class="es-icon">🧾</div><p>' +
+      (auditLogFilter === 'warning' ? 'Belum ada aktivitas yang bukan lewat sistem resmi. Aman.' : 'Belum ada log akses.') +
+      '</p></div>';
+    return;
+  }
+  area.innerHTML = '<div class="model3d-list">' + rows.map(function(r) {
+    var isWarning  = r.role !== 'service_role';
+    var tableLabel = AUDIT_TABLE_LABELS[r.table_name] || r.table_name;
+    var opLabel    = AUDIT_OP_LABELS[r.operation] || r.operation;
+    var roleLabel  = AUDIT_ROLE_LABELS[r.role] || r.role;
+    var who = r.user_id
+      ? (auditLogUserMap[r.user_id] || ('User ' + r.user_id.slice(0, 8)))
+      : 'Tidak diketahui';
+    var date = r.created_at
+      ? new Date(r.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '';
+    var badge = isWarning
+      ? '<span class="order-badge problem">⚠️ Bukan lewat sistem resmi</span>'
+      : '<span class="order-badge verified">✅ Lewat sistem resmi</span>';
+    return (
+      '<div class="model3d-row">' +
+        '<div class="order-thumb-admin">' + (isWarning ? '⚠️' : '🧾') + '</div>' +
+        '<div class="model3d-info">' +
+          '<div class="order-code">' + esc(who) + ' ' + opLabel + ' di ' + tableLabel + '</div>' +
+          '<div class="order-meta">' +
+            '<span>👤 ' + roleLabel + '</span>' +
+            (date ? '<span>🕒 ' + date + '</span>' : '') +
+            (r.record_id ? '<span>#' + esc(r.record_id) + '</span>' : '') +
+            badge +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('') + '</div>';
 }
 
 // ════════════════════════════════════════════════
