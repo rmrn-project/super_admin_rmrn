@@ -2494,15 +2494,24 @@ function confirmBulkModel3d(value) {
 
 async function doBulkSetModelValidated(keys, value) {
   try {
-    var { error } = await db3d.from('model_registry').update({ validated: value }).in('key', keys);
+    var { data, error } = await db3d.from('model_registry').update({ validated: value }).in('key', keys).select();
     if (error) throw new Error(error.message);
-    keys.forEach(function(k) {
+    if (!data || data.length === 0) {
+      throw new Error('Update ditolak server (kemungkinan RLS) — cek policy UPDATE di tabel model_registry, atau pake RPC admin_set_model_validated.');
+    }
+    if (data.length < keys.length) {
+      toast('⚠️ Cuma ' + data.length + ' dari ' + keys.length + ' model yang keupdate — sisanya kena block RLS.', true);
+    }
+    var updatedKeys = data.map(function(d) { return d.key; });
+    updatedKeys.forEach(function(k) {
       var item = model3dList.find(function(m) { return m.key === k; });
       if (item) item.validated = value;
       selectedModel3dKeys.delete(k);
     });
     renderModel3dList();
-    toast(value ? '✅ ' + keys.length + ' model disetujui sekaligus!' : '↩ Validasi ' + keys.length + ' model dibatalkan sekaligus.');
+    if (data.length === keys.length) {
+      toast(value ? '✅ ' + keys.length + ' model disetujui sekaligus!' : '↩ Validasi ' + keys.length + ' model dibatalkan sekaligus.');
+    }
   } catch(e) {
     toast('Gagal update massal: ' + e.message, true);
   }
@@ -2632,8 +2641,11 @@ async function doRegisterModel3d(key, payload) {
 
 async function setModelValidated(key, value) {
   try {
-    var { error } = await db3d.from('model_registry').update({ validated: value }).eq('key', key);
+    var { data, error } = await db3d.from('model_registry').update({ validated: value }).eq('key', key).select();
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error('Update ditolak server (kemungkinan RLS) — cek policy UPDATE di tabel model_registry, atau pake RPC admin_set_model_validated.');
+    }
     var item = model3dList.find(function(m) { return m.key === key; });
     if (item) item.validated = value;
     renderModel3dList();
