@@ -10,21 +10,21 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0b0f1a;
-      --surface: #131929;
-      --surface2: #1a2236;
-      --border: #232f45;
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --surface2: #eef1f7;
+      --border: #d8dee9;
       --accent: #3b82f6;
-      --accent-dim: #1d3557;
-      --green: #22c55e;
-      --green-dim: #14532d;
-      --red: #ef4444;
-      --red-dim: #450a0a;
-      --yellow: #f59e0b;
-      --yellow-dim: #451a03;
-      --text: #e2e8f0;
-      --text-muted: #64748b;
-      --text-dim: #94a3b8;
+      --accent-dim: #dbeafe;
+      --green: #16a34a;
+      --green-dim: #dcfce7;
+      --red: #dc2626;
+      --red-dim: #fee2e2;
+      --yellow: #d97706;
+      --yellow-dim: #fef3c7;
+      --text: #1e293b;
+      --text-muted: #94a3b8;
+      --text-dim: #475569;
       --radius: 8px;
       --radius-lg: 12px;
     }
@@ -293,6 +293,39 @@
     @media (max-width: 700px) {
       .model3d-filter-divider { display: none; }
     }
+    .toolbar-search {
+      padding: 7px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      min-width: 180px;
+      transition: border-color 0.2s;
+    }
+    .toolbar-search:focus { outline: none; border-color: var(--accent); }
+    .toolbar-search::placeholder { color: var(--text-muted); }
+    .toolbar-select {
+      padding: 7px 26px 7px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    @media (max-width: 600px) {
+      .toolbar-search { min-width: 0; flex: 1 1 100%; }
+      .toolbar-select { flex: 1 1 100%; }
+    }
     .model3d-list {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -451,6 +484,24 @@
     .order-badge.paid { background: var(--green-dim); color: var(--green); }
     .order-badge.verified { background: var(--green-dim); color: var(--green); }
     .order-badge.problem { background: var(--red-dim); color: var(--red); }
+    .order-status-select {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 22px 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+      border: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+    .order-status-select.st-warn { background-color: var(--yellow-dim); color: var(--yellow); }
+    .order-status-select.st-progress { background-color: var(--accent-dim); color: var(--accent); }
+    .order-status-select.st-done { background-color: var(--green-dim); color: var(--green); }
+    .order-status-select.st-stop { background-color: var(--red-dim); color: var(--red); }
 
     /* PIN modal */
     .pin-modal {
@@ -1153,8 +1204,8 @@
   <div class="tabbar">
     <div class="topbar-tabs">
       <button class="topbar-tab active" id="tabBtnProfil" onclick="switchAdminTab('profil')">Profil &amp; Toko</button>
-      <button class="topbar-tab" id="tabBtnModel3d" onclick="switchAdminTab('model3d')">3D Kreator</button>
       <button class="topbar-tab" id="tabBtnPesanan" onclick="switchAdminTab('pesanan')">Pesanan</button>
+      <button class="topbar-tab" id="tabBtnModel3d" onclick="switchAdminTab('model3d')">3D Kreator</button>
       <button class="topbar-tab" id="tabBtnPencairan" onclick="switchAdminTab('pencairan')">💸 Pencairan</button>
       <button class="topbar-tab" id="tabBtnBroadcast" onclick="switchAdminTab('broadcast')">📢 Broadcast</button>
       <button class="topbar-tab" id="tabBtnLogAkses" onclick="switchAdminTab('logakses')">🧾 Log Akses</button>
@@ -1229,7 +1280,8 @@
             </div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input class="toolbar-search" id="m3dSearchInput" placeholder="🔍 Cari nama/creator/key..." oninput="setModel3dSearch(this.value)" />
           <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="m3dSelectAllChk" onclick="toggleSelectAllModel3d(this.checked)"> Pilih Semua</label>
           <button class="btn btn-ghost btn-sm" onclick="loadModel3dList()">↻ Refresh</button>
         </div>
@@ -1259,7 +1311,9 @@
           <button class="model3d-filter-btn" id="ordFilterPaid" onclick="setOrdersFilter('paid')">✅ Approved</button>
           <button class="model3d-filter-btn" id="ordFilterAll" onclick="setOrdersFilter('all')">Semua</button>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <select class="toolbar-select" id="ordStatusFilterSelect" onchange="setOrdersStatusFilter(this.value)"></select>
+          <input class="toolbar-search" id="ordSearchInput" placeholder="🔍 Cari kode/nama pembeli..." oninput="setOrdersSearch(this.value)" />
           <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="ordSelectAllChk" onclick="toggleSelectAllOrders(this.checked)"> Pilih Semua</label>
           <button class="btn btn-ghost btn-sm" onclick="loadOrders()">↻ Refresh</button>
         </div>
@@ -1290,7 +1344,8 @@
           <button class="model3d-filter-btn" id="poFilterProblem" onclick="setPayoutFilter('problem')">⚠️ Bermasalah</button>
           <button class="model3d-filter-btn" id="poFilterAll" onclick="setPayoutFilter('all')">Semua</button>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input class="toolbar-search" id="poSearchInput" placeholder="🔍 Cari nama/toko/rekening..." oninput="setPayoutSearch(this.value)" />
           <label class="select-all-wrap"><input type="checkbox" class="row-select-checkbox" id="poSelectAllChk" onclick="toggleSelectAllPayout(this.checked)"> Pilih Semua</label>
           <button class="btn btn-ghost btn-sm" onclick="loadPayoutRequests()">↻ Refresh</button>
         </div>
@@ -1352,7 +1407,10 @@
           <button class="model3d-filter-btn active" id="auditFilterAll" onclick="setAuditLogFilter('all')">Semua</button>
           <button class="model3d-filter-btn" id="auditFilterWarning" onclick="setAuditLogFilter('warning')">⚠️ Bukan Lewat Sistem Resmi</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">↻ Refresh</button>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input class="toolbar-search" id="auditSearchInput" placeholder="🔍 Cari tabel/user/record id..." oninput="setAuditSearch(this.value)" />
+          <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">↻ Refresh</button>
+        </div>
       </div>
       <div id="auditLogArea">
         <div class="empty-state">
@@ -1452,7 +1510,7 @@ async function enablePushNotif() {
     return;
   }
   try {
-    await subscribeAdminToPush(db, PUSH_VAPID_PUBLIC_KEY);
+    await subscribeAdminToPush(db, VAPID_PUBLIC_KEY);
     toast('🔔 Notifikasi aktif di device ini!');
   } catch (e) {
     console.error(e);
@@ -2326,8 +2384,8 @@ function switchAdminTab(tab) {
   if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
   if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
   if (tab === 'pencairan' && payoutList.length === 0) loadPayoutRequests();
-  if (tab === 'broadcast') { loadBroadcastCount(); loadBroadcastHistory(); }
-  if (tab === 'logakses') loadAuditLog();
+  if (tab === 'broadcast') { loadBroadcastCount(); if (bcHistoryItems.length === 0) loadBroadcastHistory(); }
+  if (tab === 'logakses' && auditLogItems.length === 0) loadAuditLog();
   if (tab !== 'model3d')   { selectedModel3dKeys.clear(); }
   if (tab !== 'pesanan')   { selectedOrderIds.clear(); }
   if (tab !== 'pencairan') { selectedPayoutIds.clear(); }
@@ -2394,6 +2452,10 @@ function model3dPassesFilters(m) {
     var complete = eligible && isCreditComplete(registeredModelCredits[m.key]);
     if (model3dCreditFilter === 'registered' && !complete) return false;
     if (model3dCreditFilter === 'unregistered' && !(eligible && !complete)) return false;
+  }
+  if (model3dSearchText) {
+    var haystack = (String(m.label || '') + ' ' + String(m.key || '') + ' ' + String(m.creator_name || '')).toLowerCase();
+    if (haystack.indexOf(model3dSearchText) === -1) return false;
   }
   return true;
 }
@@ -2688,6 +2750,80 @@ function formatRupiah(n) {
   return 'Rp ' + num.toLocaleString('id-ID');
 }
 
+// ── Status pesanan (kolom `status`, enum order_status di Supabase) ──
+var ORDER_STATUS_META = {
+  'pending_payment':    { label: 'Menunggu Pembayaran',   cls: 'st-warn' },
+  'pending_review':     { label: 'Menunggu Review',       cls: 'st-warn' },
+  'under_review':       { label: 'Sedang Direview',       cls: 'st-warn' },
+  'revision_requested': { label: 'Revisi Diminta',        cls: 'st-warn' },
+  'in_production':      { label: 'Diproduksi',            cls: 'st-progress' },
+  'shipped':            { label: 'Dikirim',               cls: 'st-progress' },
+  'proof_approval':     { label: 'Approval Bukti Bayar',  cls: 'st-progress' },
+  'completed':          { label: 'Selesai',                cls: 'st-done' },
+  'cancelled':          { label: 'Dibatalkan',             cls: 'st-stop' },
+  'rejected':            { label: 'Ditolak',                cls: 'st-stop' }
+};
+var ORDER_STATUS_OPTIONS = ['pending_payment', 'pending_review', 'under_review', 'revision_requested', 'in_production', 'shipped', 'proof_approval', 'completed', 'cancelled', 'rejected'];
+
+(function populateOrderStatusFilterSelect() {
+  var sel = document.getElementById('ordStatusFilterSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Semua Status Pesanan</option>' +
+    ORDER_STATUS_OPTIONS.map(function(s) {
+      return '<option value="' + s + '">' + esc(ORDER_STATUS_META[s].label) + '</option>';
+    }).join('');
+})();
+
+var ordersStatusFilter = 'all';
+var ordersSearchText = '';
+function setOrdersStatusFilter(v) { ordersStatusFilter = v; renderOrders(); }
+function setOrdersSearch(v) { ordersSearchText = v.trim().toLowerCase(); renderOrders(); }
+
+var model3dSearchText = '';
+function setModel3dSearch(v) { model3dSearchText = v.trim().toLowerCase(); renderModel3dList(); }
+
+var payoutSearchText = '';
+function setPayoutSearch(v) { payoutSearchText = v.trim().toLowerCase(); renderPayoutRequests(); }
+
+var auditSearchText = '';
+function setAuditSearch(v) { auditSearchText = v.trim().toLowerCase(); renderAuditLog(); }
+
+function buildOrderStatusSelect(o) {
+  var current = o.status || '';
+  var meta = ORDER_STATUS_META[current];
+  var cls = meta ? meta.cls : 'st-warn';
+  var opts = '<option value="" ' + (!current ? 'selected' : '') + '>--- (kosong)</option>' +
+    ORDER_STATUS_OPTIONS.map(function(s) {
+      var m = ORDER_STATUS_META[s];
+      return '<option value="' + s + '" ' + (s === current ? 'selected' : '') + '>' + esc(m.label) + '</option>';
+    }).join('');
+  return '<select class="order-status-select ' + cls + '" onchange="handleOrderStatusChange(this, \'' + esc(o.id) + '\')">' + opts + '</select>';
+}
+
+function handleOrderStatusChange(selectEl, id) {
+  var newStatus = selectEl.value;
+  var row = ordersList.find(function(o) { return String(o.id) === String(id); });
+  var oldStatus = row ? (row.status || '') : '';
+  selectEl.value = oldStatus; // balikin dulu tampilannya, baru berubah beneran kalau PIN-nya bener & berhasil disimpan
+  if (newStatus === oldStatus) return;
+  var label = newStatus ? (ORDER_STATUS_META[newStatus] ? ORDER_STATUS_META[newStatus].label : newStatus) : '(kosong)';
+  openPinModal('confirm', function() { doSetOrderStatus(id, newStatus); }, 'Konfirmasi PIN buat ubah status pesanan jadi "' + label + '".');
+}
+
+async function doSetOrderStatus(id, newStatus) {
+  try {
+    var { error } = await db.from('orders').update({ status: newStatus || null }).eq('id', id);
+    if (error) throw new Error(error.message);
+    var item = ordersList.find(function(o) { return String(o.id) === String(id); });
+    if (item) item.status = newStatus || null;
+    renderOrders();
+    var label = newStatus ? (ORDER_STATUS_META[newStatus] ? ORDER_STATUS_META[newStatus].label : newStatus) : '(kosong)';
+    toast('✅ Status pesanan diubah jadi "' + label + '".');
+  } catch(e) {
+    toast('Gagal ubah status: ' + e.message, true);
+  }
+}
+
 async function loadOrders() {
   var area = document.getElementById('orderListArea');
   selectedOrderIds.clear();
@@ -2711,13 +2847,22 @@ function setOrdersFilter(f) {
   renderOrders();
 }
 
+function ordersMatchesFilters(o) {
+  if (ordersFilter === 'pending' && o.payment_status === true) return false;
+  if (ordersFilter === 'paid' && o.payment_status !== true) return false;
+  if (ordersStatusFilter !== 'all' && (o.status || '') !== ordersStatusFilter) return false;
+  if (ordersSearchText) {
+    var code = ov(o, ['order_code', 'code', 'id']) || '';
+    var buyer = ov(o, ['buyer_name', 'nama_pembeli', 'customer_name', 'full_name']) || '';
+    var haystack = (String(code) + ' ' + String(buyer)).toLowerCase();
+    if (haystack.indexOf(ordersSearchText) === -1) return false;
+  }
+  return true;
+}
+
 function renderOrders() {
   var area = document.getElementById('orderListArea');
-  var rows = ordersList.filter(function(o) {
-    if (ordersFilter === 'pending') return o.payment_status !== true;
-    if (ordersFilter === 'paid') return o.payment_status === true;
-    return true;
-  });
+  var rows = ordersList.filter(ordersMatchesFilters);
   if (!rows.length) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">🧾</div><p>Tidak ada pesanan di kategori ini.</p></div>';
     updateOrdersBulkBar();
@@ -2730,7 +2875,6 @@ function renderOrders() {
     var totalRaw = ov(o, ['total', 'total_price', 'total_harga', 'amount', 'grand_total']);
     var total = formatRupiah(totalRaw);
     var proof = ov(o, ['payment_proof_url', 'bukti_transfer', 'proof_url', 'payment_proof']);
-    var status = ov(o, ['status']);
     var isPaid = o.payment_status === true;
     var badgeHtml = isPaid
       ? '<span class="order-badge paid">✅ Approved</span>'
@@ -2752,7 +2896,7 @@ function renderOrders() {
             (buyer ? '<span>👤 ' + esc(buyer) + '</span>' : '') +
             (product ? '<span>📦 ' + esc(product) + '</span>' : '') +
             (total ? '<span>💰 ' + esc(total) + '</span>' : '') +
-            (status ? '<span>' + esc(status) + '</span>' : '') +
+            buildOrderStatusSelect(o) +
             badgeHtml +
           '</div>' +
         '</div>' +
@@ -2764,12 +2908,9 @@ function renderOrders() {
 }
 
 function ordersVisibleRows() {
-  return ordersList.filter(function(o) {
-    if (ordersFilter === 'pending') return o.payment_status !== true;
-    if (ordersFilter === 'paid') return o.payment_status === true;
-    return true;
-  });
+  return ordersList.filter(ordersMatchesFilters);
 }
+
 
 function toggleOrderSelect(id, checked) {
   var key = String(id);
@@ -2894,12 +3035,18 @@ function setPayoutFilter(f) {
   renderPayoutRequests();
 }
 
+function payoutMatchesFilters(r) {
+  if (payoutFilter !== 'all' && (r.status || 'pending') !== payoutFilter) return false;
+  if (payoutSearchText) {
+    var haystack = (String(r.seller_name || '') + ' ' + String(r.seller_email || '') + ' ' + String(r.seller_id || '') + ' ' + (r.order_codes || []).join(' ')).toLowerCase();
+    if (haystack.indexOf(payoutSearchText) === -1) return false;
+  }
+  return true;
+}
+
 function renderPayoutRequests() {
   var area = document.getElementById('payoutListArea');
-  var rows = payoutList.filter(function(r) {
-    if (payoutFilter === 'all') return true;
-    return (r.status || 'pending') === payoutFilter;
-  });
+  var rows = payoutList.filter(payoutMatchesFilters);
   if (!rows.length) {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">💸</div><p>Tidak ada permintaan pencairan di kategori ini.</p></div>';
     updatePayoutBulkBar();
@@ -2939,10 +3086,7 @@ function renderPayoutRequests() {
 }
 
 function payoutVisibleRows() {
-  return payoutList.filter(function(r) {
-    if (payoutFilter === 'all') return true;
-    return (r.status || 'pending') === payoutFilter;
-  });
+  return payoutList.filter(payoutMatchesFilters);
 }
 
 function togglePayoutSelect(id, checked) {
@@ -3360,7 +3504,12 @@ function renderAuditLog() {
   var area = document.getElementById('auditLogArea');
   if (!area) return;
   var rows = auditLogItems.filter(function(r) {
-    if (auditLogFilter === 'warning') return r.role !== 'service_role';
+    if (auditLogFilter === 'warning' && r.role === 'service_role') return false;
+    if (auditSearchText) {
+      var who = r.user_id ? (auditLogUserMap[r.user_id] || r.user_id) : '';
+      var haystack = (String(r.table_name || '') + ' ' + String(r.record_id || '') + ' ' + String(who)).toLowerCase();
+      if (haystack.indexOf(auditSearchText) === -1) return false;
+    }
     return true;
   });
   if (!rows.length) {
