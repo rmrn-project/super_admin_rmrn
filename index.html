@@ -2150,12 +2150,30 @@ function renderProductForm(pr, isNew) {
         'style="max-height:160px;max-width:100%;border-radius:var(--radius);border:1px solid var(--border);object-fit:cover;background:var(--bg)" ' +
         'onerror="this.style.display=\'none\'" />' +
       '</div>';
-  return imgPreview +
+  var extraImgsHtml = '';
+  try {
+    var extraArr = pr.extra_images ? (typeof pr.extra_images === 'string' ? JSON.parse(pr.extra_images) : pr.extra_images) : [];
+    if (Array.isArray(extraArr) && extraArr.length) {
+      var imgOrigin = '';
+      try { imgOrigin = pr.image_url ? new URL(pr.image_url).origin : ''; } catch(e2) {}
+      extraImgsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
+        extraArr.map(function(rel) {
+          var full = imgOrigin ? imgOrigin + '/' + String(rel).replace(/^\/+/, '') : String(rel);
+          return '<img src="' + esc(full) + '" onclick="openLightbox(event, \'' + esc(full) + '\')" ' +
+            'style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;flex-shrink:0" ' +
+            'onerror="this.style.display=\'none\'" />';
+        }).join('') +
+      '</div>';
+    }
+  } catch(e3) { /* extra_images bukan JSON valid, skip diem-diem */ }
+  return imgPreview + extraImgsHtml +
   '<div class="edit-grid edit-grid-3" id="prod-form-' + id + '">' +
     epf(id, 'name', 'Nama Produk', pr.name, 'text', true) +
     epf(id, 'category', 'Kategori', pr.category) +
+    epf(id, 'subcategory', 'Subkategori', pr.subcategory) +
     epf(id, 'slug', 'Slug', pr.slug) +
     epf(id, 'price', 'Harga (Rp)', pr.price, 'number') +
+    epf(id, 'floor_price', 'Floor Price (Rp)', pr.floor_price, 'number') +
     epf(id, 'moq', 'MOQ', pr.moq, 'number') +
     epf(id, 'unit', 'Unit', pr.unit || 'pcs') +
     epf(id, 'nego_min', 'Nego Min (Rp)', pr.nego_min, 'number') +
@@ -2167,6 +2185,19 @@ function renderProductForm(pr, isNew) {
     epf(id, 'production_method', 'Metode Produksi', pr.production_method) +
     epf(id, 'sample_price', 'Harga Sample', pr.sample_price, 'number') +
     epf(id, 'free_revisions', 'Free Revisi', pr.free_revisions, 'number') +
+    '<div class="edit-field" style="grid-column:1/-1;border-top:1px dashed var(--border);padding-top:10px;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase">Promo</div>' +
+    epf(id, 'price_promo', 'Harga Promo (Rp)', pr.price_promo, 'number') +
+    epf(id, 'promo_start_date', 'Promo Mulai', pr.promo_start_date, 'text') +
+    epf(id, 'promo_end_date', 'Promo Selesai', pr.promo_end_date, 'text') +
+    '<div class="edit-field" style="grid-column:1/-1;border-top:1px dashed var(--border);padding-top:10px;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase">Biaya & Ongkir</div>' +
+    epf(id, 'design_fee', 'Design Fee (Rp)', pr.design_fee, 'number') +
+    '<div class="edit-field"><label>Design Fee Sudah Dibayar</label><select id="epf_' + id + '_design_fee_paid"><option value="false"' + (!pr.design_fee_paid ? ' selected' : '') + '>Belum</option><option value="true"' + (pr.design_fee_paid ? ' selected' : '') + '>Sudah</option></select></div>' +
+    '<div class="edit-field"><label>Bebas Biaya Admin</label><select id="epf_' + id + '_fee_admin_free"><option value="false"' + (!pr.fee_admin_free ? ' selected' : '') + '>Tidak</option><option value="true"' + (pr.fee_admin_free ? ' selected' : '') + '>Ya</option></select></div>' +
+    epf(id, 'shipping_discount_amount', 'Diskon Ongkir (Rp)', pr.shipping_discount_amount, 'number') +
+    epf(id, 'shipping_discount_min_purchase', 'Min. Belanja Diskon Ongkir (Rp)', pr.shipping_discount_min_purchase, 'number') +
+    '<div class="edit-field" style="grid-column:1/-1;border-top:1px dashed var(--border);padding-top:10px;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase">Spesifikasi & Varian (JSON)</div>' +
+    '<div class="edit-field" style="grid-column:1/-1"><label>Specs</label><textarea id="epf_' + id + '_specs" placeholder=\'[{"key":"Material","val":"..."}]\' style="font-family:monospace;font-size:11px;min-height:90px">' + esc(prettyJsonOrRaw(pr.specs)) + '</textarea></div>' +
+    '<div class="edit-field" style="grid-column:1/-1"><label>Variant Groups</label><textarea id="epf_' + id + '_variant_groups" placeholder=\'[{"name":"Laminasi","options":[{"name":"Doff"}]}]\' style="font-family:monospace;font-size:11px;min-height:90px">' + esc(prettyJsonOrRaw(pr.variant_groups)) + '</textarea></div>' +
     '<div class="edit-field"><label>Deskripsi</label><textarea id="epf_' + id + '_description">' + esc(pr.description || '') + '</textarea></div>' +
     '<div class="edit-field"><label>Tags (koma)</label><input type="text" id="epf_' + id + '_tags" value="' + esc((pr.tags || []).join(', ')) + '" /></div>' +
     '<div class="edit-field"><label>Status Produk</label><select id="epf_' + id + '_is_active"><option value="true"' + (pr.is_active !== false ? ' selected' : '') + '>✅ Aktif</option><option value="false"' + (pr.is_active === false ? ' selected' : '') + '>🔴 Nonaktif</option></select></div>' +
@@ -2195,6 +2226,16 @@ function updateImgPreview(id, url) {
   }
 }
 
+function prettyJsonOrRaw(val) {
+  if (!val) return '';
+  try {
+    var parsed = typeof val === 'string' ? JSON.parse(val) : val;
+    return JSON.stringify(parsed, null, 2);
+  } catch(e) {
+    return typeof val === 'string' ? val : '';
+  }
+}
+
 function epf(pid, field, label, val, type, full) {
   var cls = full ? ' style="grid-column:1/-1"' : '';
   return '<div class="edit-field"' + cls + '><label>' + label + '</label><input type="' + (type||'text') + '" id="epf_' + pid + '_' + field + '" value="' + esc(val || '') + '" /></div>';
@@ -2210,8 +2251,10 @@ function buildProductPayload(id, uid) {
     seller_id:         uid || currentUID,
     name:              gpf(id, 'name'),
     category:          gpf(id, 'category') || null,
+    subcategory:       gpf(id, 'subcategory') || null,
     slug:              gpf(id, 'slug') || null,
     price:             parseInt(gpf(id, 'price')) || 0,
+    floor_price:       parseInt(gpf(id, 'floor_price')) || null,
     moq:               parseInt(gpf(id, 'moq')) || null,
     unit:              gpf(id, 'unit') || 'pcs',
     nego_min:          parseInt(gpf(id, 'nego_min')) || null,
@@ -2223,6 +2266,26 @@ function buildProductPayload(id, uid) {
     production_method: gpf(id, 'production_method') || null,
     sample_price:      parseInt(gpf(id, 'sample_price')) || null,
     free_revisions:    parseInt(gpf(id, 'free_revisions')) || null,
+    price_promo:            parseInt(gpf(id, 'price_promo')) || null,
+    promo_start_date:       gpf(id, 'promo_start_date') || null,
+    promo_end_date:         gpf(id, 'promo_end_date') || null,
+    design_fee:              parseInt(gpf(id, 'design_fee')) || null,
+    design_fee_paid:         (function(){ var el=document.getElementById('epf_'+id+'_design_fee_paid'); return el?el.value==='true':false; })(),
+    fee_admin_free:          (function(){ var el=document.getElementById('epf_'+id+'_fee_admin_free'); return el?el.value==='true':false; })(),
+    shipping_discount_amount:       parseInt(gpf(id, 'shipping_discount_amount')) || null,
+    shipping_discount_min_purchase: parseInt(gpf(id, 'shipping_discount_min_purchase')) || null,
+    specs:             (function(){
+      var el = document.getElementById('epf_'+id+'_specs');
+      if (!el || !el.value.trim()) return null;
+      try { return JSON.stringify(JSON.parse(el.value)); }
+      catch(e) { throw new Error('Field Specs bukan JSON valid: ' + e.message); }
+    })(),
+    variant_groups:    (function(){
+      var el = document.getElementById('epf_'+id+'_variant_groups');
+      if (!el || !el.value.trim()) return null;
+      try { return JSON.stringify(JSON.parse(el.value)); }
+      catch(e) { throw new Error('Field Variant Groups bukan JSON valid: ' + e.message); }
+    })(),
     description:       (function(){ var el=document.getElementById('epf_'+id+'_description'); return el?el.value.trim()||null:null; })(),
     tags:              (function(){ var el=document.getElementById('epf_'+id+'_tags'); return el&&el.value.trim()?el.value.split(',').map(function(s){return s.trim();}).filter(Boolean):null; })(),
     is_active:         (function(){ var el=document.getElementById('epf_'+id+'_is_active'); return el?el.value==='true':true; })(),
