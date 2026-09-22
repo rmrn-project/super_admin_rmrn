@@ -2157,11 +2157,11 @@ function renderProductForm(pr, isNew) {
       var imgOrigin = '';
       try { imgOrigin = pr.image_url ? new URL(pr.image_url).origin : ''; } catch(e2) {}
       extraImgsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
-        extraArr.map(function(rel) {
+        extraArr.map(function(rel, idx) {
           var full = imgOrigin ? imgOrigin + '/' + String(rel).replace(/^\/+/, '') : String(rel);
-          return '<img src="' + esc(full) + '" onclick="openLightbox(event, \'' + esc(full) + '\')" ' +
-            'style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;flex-shrink:0" ' +
-            'onerror="this.style.display=\'none\'" />';
+          return '<a href="' + esc(full) + '" target="_blank" rel="noopener" onclick="openLightbox(event, \'' + esc(full) + '\'); return false;" ' +
+            'style="font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);text-decoration:none;cursor:pointer;flex-shrink:0">' +
+            'Gambar ' + (idx + 1) + '</a>';
         }).join('') +
       '</div>';
     }
@@ -2179,7 +2179,7 @@ function renderProductForm(pr, isNew) {
     epf(id, 'nego_min', 'Nego Min (Rp)', pr.nego_min, 'number') +
     epf(id, 'lead_time_days', 'Lead Time (hari)', pr.lead_time_days, 'number') +
     epf(id, 'whatsapp', 'WhatsApp', pr.whatsapp) +
-    '<div class="edit-field" style="grid-column:1/-1"><label>Image URL</label><input type="text" id="epf_' + id + '_image_url" value="' + esc(pr.image_url || '') + '" oninput="updateImgPreview(\'' + id + '\',this.value)" placeholder="https://..." /></div>' +
+    '<input type="hidden" id="epf_' + id + '_image_url" value="' + esc(pr.image_url || '') + '" />' +
     epf(id, 'tokopedia_url', 'Tokopedia URL', pr.tokopedia_url) +
     epf(id, 'shopee_url', 'Shopee URL', pr.shopee_url) +
     epf(id, 'production_method', 'Metode Produksi', pr.production_method) +
