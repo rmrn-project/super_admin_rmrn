@@ -2158,7 +2158,8 @@ function renderProductForm(pr, isNew) {
       try { imgOrigin = pr.image_url ? new URL(pr.image_url).origin : ''; } catch(e2) {}
       extraImgsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
         extraArr.map(function(rel, idx) {
-          var full = imgOrigin ? imgOrigin + '/' + String(rel).replace(/^\/+/, '') : String(rel);
+          var relStr = String(rel);
+          var full = /^https?:\/\//i.test(relStr) ? relStr : (imgOrigin ? imgOrigin + '/' + relStr.replace(/^\/+/, '') : relStr);
           return '<a href="' + esc(full) + '" target="_blank" rel="noopener" onclick="openLightbox(event, \'' + esc(full) + '\'); return false;" ' +
             'style="font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);text-decoration:none;cursor:pointer;flex-shrink:0">' +
             'Gambar ' + (idx + 1) + '</a>';
