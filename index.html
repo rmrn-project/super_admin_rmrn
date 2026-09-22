@@ -1659,12 +1659,14 @@ function renderSidebar() {
   }).join('');
 }
 
-function sidebarClick(uid) {
+async function sidebarClick(uid) {
   activeSidebarUID = uid;
   document.querySelectorAll('.sidebar-item').forEach(function(el) { el.classList.remove('active'); });
   var el = document.getElementById('sb-' + uid);
   if (el) el.classList.add('active');
-  showUserDetail(uid, null);
+  await showUserDetail(uid, null);
+  var resultsEl = document.getElementById('userResultsArea');
+  if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function handleSidebarChange(payload) {
