@@ -2950,7 +2950,7 @@ function renderOrders() {
     var product = ov(o, ['product_name', 'produk', 'nama_produk']);
     var totalRaw = ov(o, ['total', 'total_price', 'total_harga', 'amount', 'grand_total']);
     var total = formatRupiah(totalRaw);
-    var proof = ov(o, ['payment_proof_url', 'bukti_transfer', 'proof_url', 'payment_proof']);
+    var proof = ov(o, ['bukti_transfer_url', 'payment_proof_url', 'bukti_transfer', 'proof_url', 'payment_proof']);
     var isPaid = o.payment_status === true;
     var badgeHtml = isPaid
       ? '<span class="order-badge paid">✅ Approved</span>'
