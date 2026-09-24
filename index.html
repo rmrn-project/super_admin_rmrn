@@ -484,6 +484,17 @@
     .order-badge.paid { background: var(--green-dim); color: var(--green); }
     .order-badge.verified { background: var(--green-dim); color: var(--green); }
     .order-badge.problem { background: var(--red-dim); color: var(--red); }
+    .order-badge-proof {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+      background: var(--surface2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
     .order-status-select {
       font-size: 10.5px;
       font-weight: 700;
@@ -2894,7 +2905,7 @@ async function loadOrders() {
   selectedOrderIds.clear();
   area.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat daftar pesanan...</div></div>';
   try {
-    var { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
+    var { data, error } = await db.from('orders').select('*, seller_products:product_id(image_url)').order('created_at', { ascending: false }).limit(200);
     if (error) throw new Error(error.message);
     ordersList = data || [];
     renderOrders();
@@ -2944,10 +2955,18 @@ function renderOrders() {
     var badgeHtml = isPaid
       ? '<span class="order-badge paid">✅ Approved</span>'
       : '<span class="order-badge pending">⏳ Menunggu</span>';
-    var thumbHtml = proof
-      ? '<img src="' + esc(proof) + '" alt="bukti" />'
-      : '🧾';
-    var thumbClick = proof ? 'onclick="openLightbox(event, \'' + esc(proof) + '\')"' : '';
+    // Thumbnail: foto produk (join ke seller_products lewat product_id).
+    // Bukti transfer TIDAK lagi gantiin thumbnail — dipindah jadi badge
+    // terpisah di order-meta, biar dua info ini (produk vs bukti bayar)
+    // gak saling tiban.
+    var productImage = o.seller_products && o.seller_products.image_url;
+    var thumbHtml = productImage
+      ? '<img src="' + esc(productImage) + '" alt="produk" />'
+      : '📦';
+    var thumbClick = '';
+    var proofBadgeHtml = proof
+      ? '<span class="order-badge-proof" onclick="openLightbox(event, \'' + esc(proof) + '\')">📎 Bukti</span>'
+      : '';
     var actionHtml = isPaid
       ? '<button class="btn btn-sm btn-ghost" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', true)">↩ Batalkan</button>'
       : '<button class="btn btn-sm btn-approve" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', false)">✓ Approve</button>';
@@ -2963,6 +2982,7 @@ function renderOrders() {
             (total ? '<span>💰 ' + esc(total) + '</span>' : '') +
             buildOrderStatusSelect(o) +
             badgeHtml +
+            proofBadgeHtml +
           '</div>' +
         '</div>' +
         '<div class="model3d-actions">' + actionHtml + '</div>' +
