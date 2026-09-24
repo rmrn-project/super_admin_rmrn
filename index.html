@@ -2427,6 +2427,34 @@ function closeLightbox() {
   document.getElementById('photoLightbox').classList.remove('show');
 }
 
+// Bukti transfer disimpan di bucket Storage `payment-proofs` yang PRIVATE
+// (dicek 2026-09-25: URL gaya /object/public/... yang tersimpan di kolom
+// bukti_transfer_url gak akan pernah kebuka buat bucket private). Panel ini
+// jalan pakai service role (lihat db = supabase.createClient(...) di
+// bootstrap login), jadi bisa createSignedUrl() bypass semua policy —
+// gak perlu tau policy owner/authenticated-nya, tinggal generate signed URL
+// baru tiap kali admin klik badge "📎 Bukti".
+function openProofLightbox(e, rawUrl) {
+  e.stopPropagation();
+  var marker = '/payment-proofs/';
+  var idx = rawUrl.indexOf(marker);
+  if (idx === -1) {
+    toast('Gagal buka bukti: format URL gak dikenali.', true);
+    return;
+  }
+  // Ambil path relatif di dalam bucket, buang query string kalau ada
+  // (misal ?token=... dari signed URL lama yang mungkin ke-simpan).
+  var path = rawUrl.slice(idx + marker.length).split('?')[0];
+  db.storage.from('payment-proofs').createSignedUrl(path, 3600).then(function(res) {
+    if (res.error || !res.data || !res.data.signedUrl) {
+      toast('Gagal buka bukti: ' + (res.error ? res.error.message : 'unknown error'), true);
+      return;
+    }
+    document.getElementById('lightboxImg').src = res.data.signedUrl;
+    document.getElementById('photoLightbox').classList.add('show');
+  });
+}
+
 // ════════════════════════════════════════════════
 // 3D KREATOR — validasi model dari model_registry
 // ════════════════════════════════════════════════
@@ -2965,7 +2993,7 @@ function renderOrders() {
       : '📦';
     var thumbClick = '';
     var proofBadgeHtml = proof
-      ? '<span class="order-badge-proof" onclick="openLightbox(event, \'' + esc(proof) + '\')">📎 Bukti</span>'
+      ? '<span class="order-badge-proof" onclick="openProofLightbox(event, \'' + esc(proof) + '\')">📎 Bukti</span>'
       : '';
     var actionHtml = isPaid
       ? '<button class="btn btn-sm btn-ghost" onclick="confirmApprovePayment(\'' + esc(o.id) + '\', true)">↩ Batalkan</button>'
