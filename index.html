@@ -656,6 +656,27 @@
     .voucher-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .voucher-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .voucher-card.inactive { opacity: 0.5; }
+    .vch-vis-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+    .vch-vis-btn {
+      flex: 1; padding: 10px; border-radius: var(--radius); border: 1.5px solid var(--gray-200);
+      background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 600;
+      cursor: pointer; text-align: center;
+    }
+    .vch-vis-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(74,58,255,0.06); }
+    .vch-target-results { max-height: 160px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius); margin-top: 8px; }
+    .vch-target-row { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--gray-100); }
+    .vch-target-row:hover { background: var(--bg); }
+    .vch-target-picked {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg); font-size: 13px; margin-top: 8px;
+    }
+    .btn-edit-sm, .btn-danger-sm {
+      padding: 5px 10px; font-size: 12px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim);
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn-danger-sm { border-color: var(--red); color: var(--red); background: var(--red-dim); }
 
     /* Search bar */
     .search-section {
@@ -1440,7 +1461,7 @@
           <div class="broadcast-info-icon">🎟️</div>
           <div style="min-width:0;flex:1">
             <div class="broadcast-info-title">Voucher</div>
-            <div class="broadcast-info-sub">Frame/desain voucher selalu sama — cuma teksnya yang beda per voucher. Voucher yang aktif langsung muncul di dashboard semua seller.</div>
+            <div class="broadcast-info-sub">Frame/desain voucher selalu sama — cuma teksnya yang beda per voucher. Voucher publik muncul di semua buyer, voucher privat cuma muncul buat 1 buyer yang dipilih.</div>
           </div>
         </div>
 
@@ -1519,9 +1540,22 @@
         <label>Syarat & Ketentuan (baris kecil di bawah)</label>
         <input type="text" id="vchTerms" maxlength="80" oninput="updateVoucherPreview()" />
       </div>
+      <div class="edit-field" style="margin-bottom:14px">
+        <label>Ditujukan untuk</label>
+        <div class="vch-vis-toggle">
+          <button type="button" class="vch-vis-btn active" id="vchVisPublicBtn" onclick="setVoucherVisibility(true)">🌐 Publik (semua buyer)</button>
+          <button type="button" class="vch-vis-btn" id="vchVisPrivateBtn" onclick="setVoucherVisibility(false)">🔒 Privat (1 buyer)</button>
+        </div>
+        <div id="vchTargetArea" style="display:none">
+          <input type="text" id="vchTargetSearch" placeholder="Cari nama atau email buyer..." oninput="searchVoucherTarget(this.value)" />
+          <div class="vch-target-results" id="vchTargetResults"></div>
+          <div id="vchTargetPicked"></div>
+        </div>
+      </div>
+
       <div class="edit-field" style="margin-bottom:18px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="vchActive" style="width:auto" checked /> Aktif (tampil di dashboard seller)
+          <input type="checkbox" id="vchActive" style="width:auto" checked /> Aktif (tampil di dashboard buyer)
         </label>
       </div>
 
@@ -3589,6 +3623,8 @@ function renderBroadcastHistory() {
 var vouchersLoaded = false;
 var voucherItems = [];
 var voucherEditingId = null;
+var voucherIsPublic = true;
+var voucherTargetUser = null; // { id, label }
 
 function switchBroadcastSubtab(sub) {
   document.getElementById('bcPaneBroadcast').style.display = sub === 'broadcast' ? 'block' : 'none';
@@ -3603,6 +3639,19 @@ async function loadVouchers() {
     var res = await db.from('vouchers').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
     if (res.error) throw res.error;
     voucherItems = res.data || [];
+
+    var targetIds = Array.from(new Set(voucherItems.filter(function(v){ return v.target_user_id; }).map(function(v){ return v.target_user_id; })));
+    var targetMap = {};
+    if (targetIds.length) {
+      var pRes = await db.from('profiles').select('id, full_name, email').in('id', targetIds);
+      if (!pRes.error && pRes.data) {
+        pRes.data.forEach(function(p) { targetMap[p.id] = p; });
+      }
+    }
+    voucherItems.forEach(function(v) {
+      v._targetLabel = v.target_user_id ? (targetMap[v.target_user_id] ? (targetMap[v.target_user_id].full_name || targetMap[v.target_user_id].email || v.target_user_id) : v.target_user_id) : null;
+    });
+
     vouchersLoaded = true;
     renderVoucherList();
   } catch (e) {
@@ -3636,9 +3685,10 @@ function renderVoucherList() {
       voucherCardSvg(v) +
       '<div class="voucher-card-body">' +
         '<div class="voucher-card-title">' + esc(v.amount_text) + '</div>' +
-        '<div class="voucher-card-sub">' + esc(v.ribbon_text) + (v.is_active ? '' : ' · nonaktif') + '</div>' +
+        '<div class="voucher-card-sub">' + esc(v.ribbon_text) + (v.is_active ? '' : ' · nonaktif') + (v.is_claimed ? ' · sudah diklaim' : '') + (v.is_public ? ' · 🌐 publik' : ' · 🔒 privat: ' + esc(v._targetLabel || '-')) + '</div>' +
       '</div>' +
       '<div class="voucher-card-actions">' +
+        (v.is_claimed ? '<button class="btn-edit-sm" onclick="resetVoucherClaim(\'' + v.id + '\')">↺ Reset</button>' : '') +
         '<button class="btn-edit-sm" onclick="openVoucherModal(\'' + v.id + '\')">✏️</button>' +
         '<button class="btn-danger-sm" onclick="deleteVoucher(\'' + v.id + '\')">🗑️</button>' +
       '</div>' +
@@ -3654,8 +3704,65 @@ function openVoucherModal(id) {
   document.getElementById('vchRibbon').value = v ? v.ribbon_text : 'DISKON ONGKIR';
   document.getElementById('vchTerms').value = v ? v.terms_text : 'Berlaku untuk pembelian min. Rp100.000';
   document.getElementById('vchActive').checked = v ? v.is_active : true;
+  document.getElementById('vchTargetSearch').value = '';
+  document.getElementById('vchTargetResults').innerHTML = '';
+
+  voucherTargetUser = (v && v.target_user_id) ? { id: v.target_user_id, label: v._targetLabel || v.target_user_id } : null;
+  setVoucherVisibility(v ? v.is_public : true);
+
   updateVoucherPreview();
   document.getElementById('voucherModal').classList.add('show');
+}
+
+function setVoucherVisibility(isPublic) {
+  voucherIsPublic = isPublic;
+  document.getElementById('vchVisPublicBtn').classList.toggle('active', isPublic);
+  document.getElementById('vchVisPrivateBtn').classList.toggle('active', !isPublic);
+  document.getElementById('vchTargetArea').style.display = isPublic ? 'none' : 'block';
+  renderVoucherTargetPicked();
+}
+
+function renderVoucherTargetPicked() {
+  var el = document.getElementById('vchTargetPicked');
+  if (!voucherTargetUser) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="vch-target-picked"><span>👤 ' + esc(voucherTargetUser.label) + '</span>' +
+    '<button type="button" class="btn-danger-sm" onclick="clearVoucherTarget()">✕</button></div>';
+}
+
+function clearVoucherTarget() {
+  voucherTargetUser = null;
+  renderVoucherTargetPicked();
+}
+
+var voucherTargetSearchTimer = null;
+function searchVoucherTarget(q) {
+  clearTimeout(voucherTargetSearchTimer);
+  var area = document.getElementById('vchTargetResults');
+  if (!q || q.trim().length < 2) { area.innerHTML = ''; return; }
+  voucherTargetSearchTimer = setTimeout(async function() {
+    try {
+      var res = await db.from('profiles').select('id, full_name, email')
+        .or('full_name.ilike.%' + q + '%,email.ilike.%' + q + '%')
+        .limit(10);
+      if (res.error) throw res.error;
+      var rows = res.data || [];
+      if (!rows.length) { area.innerHTML = '<div class="vch-target-row" style="color:var(--text-muted)">Tidak ditemukan.</div>'; return; }
+      area.innerHTML = rows.map(function(p) {
+        var label = p.full_name || p.email || p.id;
+        return '<div class="vch-target-row" onclick="pickVoucherTarget(\'' + p.id + '\', ' + JSON.stringify(esc(label)) + ')">' +
+          esc(p.full_name || '(tanpa nama)') + ' — ' + esc(p.email || '-') + '</div>';
+      }).join('');
+    } catch (e) {
+      area.innerHTML = '<div class="vch-target-row" style="color:var(--red)">Gagal cari: ' + esc(e.message) + '</div>';
+    }
+  }, 300);
+}
+
+function pickVoucherTarget(id, label) {
+  voucherTargetUser = { id: id, label: label };
+  document.getElementById('vchTargetSearch').value = '';
+  document.getElementById('vchTargetResults').innerHTML = '';
+  renderVoucherTargetPicked();
 }
 
 function closeVoucherModal() {
@@ -3675,12 +3782,18 @@ async function saveVoucherModal() {
   var terms = document.getElementById('vchTerms').value.trim();
   var active = document.getElementById('vchActive').checked;
   if (!amount || !ribbon || !terms) { toast('Semua field teks voucher wajib diisi.', true); return; }
+  if (!voucherIsPublic && !voucherTargetUser) { toast('Pilih dulu buyer tujuan buat voucher privat.', true); return; }
 
   var btn = document.getElementById('vchSaveBtn');
   btn.disabled = true;
   btn.textContent = 'Menyimpan...';
   try {
-    var payload = { amount_text: amount, ribbon_text: ribbon, terms_text: terms, is_active: active, updated_at: new Date().toISOString() };
+    var payload = {
+      amount_text: amount, ribbon_text: ribbon, terms_text: terms, is_active: active,
+      is_public: voucherIsPublic,
+      target_user_id: voucherIsPublic ? null : voucherTargetUser.id,
+      updated_at: new Date().toISOString()
+    };
     var res;
     if (voucherEditingId) {
       res = await db.from('vouchers').update(payload).eq('id', voucherEditingId);
@@ -3700,7 +3813,7 @@ async function saveVoucherModal() {
 }
 
 async function deleteVoucher(id) {
-  if (!window.confirm('Hapus voucher ini? Voucher akan langsung hilang dari dashboard seller.')) return;
+  if (!window.confirm('Hapus voucher ini? Voucher akan langsung hilang dari dashboard buyer.')) return;
   try {
     var res = await db.from('vouchers').delete().eq('id', id);
     if (res.error) throw res.error;
@@ -3708,6 +3821,18 @@ async function deleteVoucher(id) {
     loadVouchers();
   } catch (e) {
     toast('Gagal hapus voucher: ' + e.message, true);
+  }
+}
+
+async function resetVoucherClaim(id) {
+  if (!window.confirm('Reset status klaim voucher ini? Voucher akan bisa diklaim lagi oleh buyer.')) return;
+  try {
+    var res = await db.from('vouchers').update({ is_claimed: false }).eq('id', id);
+    if (res.error) throw res.error;
+    toast('↺ Klaim direset.');
+    loadVouchers();
+  } catch (e) {
+    toast('Gagal reset klaim: ' + e.message, true);
   }
 }
 
