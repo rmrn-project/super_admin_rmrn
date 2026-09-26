@@ -645,6 +645,17 @@
     }
     .broadcast-subtab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 700; }
     .voucher-preview-wrap { margin-bottom: 20px; max-width: 420px; }
+    .voucher-card {
+      display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+      border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px;
+      background: var(--surface);
+    }
+    .voucher-card svg { width: 140px; flex-shrink: 0; }
+    .voucher-card-body { flex: 1; min-width: 0; }
+    .voucher-card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .voucher-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .voucher-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .voucher-card.inactive { opacity: 0.5; }
 
     /* Search bar */
     .search-section {
@@ -1428,76 +1439,96 @@
         <div class="broadcast-info">
           <div class="broadcast-info-icon">🎟️</div>
           <div style="min-width:0;flex:1">
-            <div class="broadcast-info-title">Teks Voucher Ongkir</div>
-            <div class="broadcast-info-sub">Cuma teksnya yang bisa diedit di sini — frame/desain voucher tetap sama. Perubahan langsung kepake di dashboard semua seller.</div>
+            <div class="broadcast-info-title">Voucher</div>
+            <div class="broadcast-info-sub">Frame/desain voucher selalu sama — cuma teksnya yang beda per voucher. Voucher yang aktif langsung muncul di dashboard semua seller.</div>
           </div>
         </div>
 
-        <div class="voucher-preview-wrap">
-          <svg id="vchPreviewSvg" width="100%" viewBox="0 0 650 260" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
-            <defs>
-              <mask id="vchTicketMask">
-                <rect x="0" y="0" width="650" height="260" fill="#ffffff"/>
-                <circle cx="140" cy="0" r="16" fill="#000000"/>
-                <circle cx="140" cy="260" r="16" fill="#000000"/>
-              </mask>
-              <linearGradient id="vch-cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#5B9DF9"/><stop offset="100%" stop-color="#2563EB"/>
-              </linearGradient>
-              <linearGradient id="vch-cubeLeft" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#1E4FCC"/><stop offset="100%" stop-color="#123B9E"/>
-              </linearGradient>
-              <linearGradient id="vch-cubeRight" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#3B76E8"/><stop offset="100%" stop-color="#2154C9"/>
-              </linearGradient>
-              <linearGradient id="vch-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FDB022"/><stop offset="100%" stop-color="#F98A1F"/>
-              </linearGradient>
-            </defs>
-            <g mask="url(#vchTicketMask)"><rect x="10" y="10" width="630" height="240" rx="18" fill="#ffffff"/></g>
-            <g mask="url(#vchTicketMask)"><path d="M10,28 a18,18 0 0 1 18,-18 H140 V250 H28 a18,18 0 0 1 -18,-18 Z" fill="#f39a1f"/></g>
-            <g mask="url(#vchTicketMask)"><path d="M140,10 H622 a18,18 0 0 1 18,18 V232 a18,18 0 0 1 -18,18 H140 Z" fill="#0d7676"/></g>
-            <line x1="140" y1="26" x2="140" y2="234" stroke="#f39a1f" stroke-width="2" stroke-dasharray="9,7"/>
-            <path d="M28,10 L127.51,10 M152.49,10 L622,10 A18,18 0 0 1 640,28 L640,232 A18,18 0 0 1 622,250 L152.49,250 M127.51,250 L28,250 A18,18 0 0 1 10,232 L10,28 A18,18 0 0 1 28,10" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="9,7"/>
-            <path d="M127.51,10 L128.71,11.33 L130.04,12.52 L131.5,13.56 L133.07,14.42 L134.73,15.11 L136.45,15.6 L138.21,15.9 L140.0,16.0 L141.79,15.9 L143.55,15.6 L145.27,15.11 L146.93,14.42 L148.5,13.56 L149.96,12.52 L151.29,11.33 L152.49,10.0" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="6,5"/>
-            <path d="M152.49,250.0 L151.29,248.67 L149.96,247.48 L148.5,246.44 L146.93,245.58 L145.27,244.89 L143.55,244.4 L141.79,244.1 L140.0,244.0 L138.21,244.1 L136.45,244.4 L134.73,244.89 L133.07,245.58 L131.5,246.44 L130.04,247.48 L128.71,248.67 L127.51,250.0" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="6,5"/>
-            <g mask="url(#vchTicketMask)" opacity="0.5" transform="translate(545,18) scale(1.6)">
-              <polygon points="24,4 44,14 24,24 4,14" fill="url(#vch-cubeTop)"/>
-              <polygon points="4,14 24,24 24,44 4,34" fill="url(#vch-cubeLeft)"/>
-              <polygon points="44,14 24,24 24,44 44,34" fill="url(#vch-cubeRight)"/>
-              <circle cx="24" cy="24" r="3.5" fill="url(#vch-accent)"/>
-            </g>
-            <text x="75" y="130" fill="#ffffff" font-size="30" font-weight="900" letter-spacing="4" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 75 130)">KUPON</text>
-            <text id="vchPrevAmount" x="168" y="118" fill="#f39a1f" font-size="52" font-weight="900" font-style="italic">Rp. 10.000,-</text>
-            <g>
-              <path d="M168,140 h215 l-10,14 10,14 h-215 l10,-14 z" fill="#e53935"/>
-              <circle cx="192" cy="154" r="3" fill="#ffffff"/>
-              <text id="vchPrevRibbon" x="285" y="154" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="1" text-anchor="middle" dominant-baseline="middle">DISKON ONGKIR</text>
-              <circle cx="359" cy="154" r="3" fill="#ffffff"/>
-            </g>
-            <text id="vchPrevTerms" x="275" y="183" fill="#ffffff" opacity="0.85" font-size="11" text-anchor="middle" dominant-baseline="middle">Berlaku untuk pembelian min. Rp100.000</text>
-            <text x="610" y="228" fill="#FDB022" font-size="15" font-weight="700" text-anchor="end" dominant-baseline="middle">S&amp;K</text>
-          </svg>
+        <div class="edit-actions" style="margin-top:0;margin-bottom:18px">
+          <button class="btn-save" onclick="openVoucherModal(null)">➕ Tambah Voucher</button>
         </div>
 
-        <div class="edit-field" style="margin-bottom:14px">
-          <label>Nominal (contoh: Rp. 10.000,-)</label>
-          <input type="text" id="vchAmount" maxlength="20" oninput="updateVoucherPreview()" />
-        </div>
-        <div class="edit-field" style="margin-bottom:14px">
-          <label>Teks Ribbon</label>
-          <input type="text" id="vchRibbon" maxlength="30" oninput="updateVoucherPreview()" />
-        </div>
-        <div class="edit-field" style="margin-bottom:18px">
-          <label>Syarat & Ketentuan (baris kecil di bawah)</label>
-          <input type="text" id="vchTerms" maxlength="80" oninput="updateVoucherPreview()" />
-        </div>
-
-        <div class="edit-actions" style="margin-top:0">
-          <button class="btn-save" id="vchSaveBtn" onclick="saveVoucherSettings()">💾 Simpan Voucher</button>
-        </div>
+        <div id="vchListArea"></div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Voucher form modal -->
+  <div class="credit-modal" id="voucherModal">
+    <div class="credit-box">
+      <div class="credit-box-title" id="vchModalTitle">Tambah Voucher</div>
+      <div class="credit-box-sub">Cuma teks yang bisa diedit — frame/desain tiket tetap sama untuk semua voucher.</div>
+
+      <div class="voucher-preview-wrap">
+        <svg id="vchPreviewSvg" width="100%" viewBox="0 0 650 260" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+          <defs>
+            <mask id="vchTicketMask">
+              <rect x="0" y="0" width="650" height="260" fill="#ffffff"/>
+              <circle cx="140" cy="0" r="16" fill="#000000"/>
+              <circle cx="140" cy="260" r="16" fill="#000000"/>
+            </mask>
+            <linearGradient id="vch-cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#5B9DF9"/><stop offset="100%" stop-color="#2563EB"/>
+            </linearGradient>
+            <linearGradient id="vch-cubeLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#1E4FCC"/><stop offset="100%" stop-color="#123B9E"/>
+            </linearGradient>
+            <linearGradient id="vch-cubeRight" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3B76E8"/><stop offset="100%" stop-color="#2154C9"/>
+            </linearGradient>
+            <linearGradient id="vch-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FDB022"/><stop offset="100%" stop-color="#F98A1F"/>
+            </linearGradient>
+          </defs>
+          <g mask="url(#vchTicketMask)"><rect x="10" y="10" width="630" height="240" rx="18" fill="#ffffff"/></g>
+          <g mask="url(#vchTicketMask)"><path d="M10,28 a18,18 0 0 1 18,-18 H140 V250 H28 a18,18 0 0 1 -18,-18 Z" fill="#f39a1f"/></g>
+          <g mask="url(#vchTicketMask)"><path d="M140,10 H622 a18,18 0 0 1 18,18 V232 a18,18 0 0 1 -18,18 H140 Z" fill="#0d7676"/></g>
+          <line x1="140" y1="26" x2="140" y2="234" stroke="#f39a1f" stroke-width="2" stroke-dasharray="9,7"/>
+          <path d="M28,10 L127.51,10 M152.49,10 L622,10 A18,18 0 0 1 640,28 L640,232 A18,18 0 0 1 622,250 L152.49,250 M127.51,250 L28,250 A18,18 0 0 1 10,232 L10,28 A18,18 0 0 1 28,10" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="9,7"/>
+          <path d="M127.51,10 L128.71,11.33 L130.04,12.52 L131.5,13.56 L133.07,14.42 L134.73,15.11 L136.45,15.6 L138.21,15.9 L140.0,16.0 L141.79,15.9 L143.55,15.6 L145.27,15.11 L146.93,14.42 L148.5,13.56 L149.96,12.52 L151.29,11.33 L152.49,10.0" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="6,5"/>
+          <path d="M152.49,250.0 L151.29,248.67 L149.96,247.48 L148.5,246.44 L146.93,245.58 L145.27,244.89 L143.55,244.4 L141.79,244.1 L140.0,244.0 L138.21,244.1 L136.45,244.4 L134.73,244.89 L133.07,245.58 L131.5,246.44 L130.04,247.48 L128.71,248.67 L127.51,250.0" fill="none" stroke="#f39a1f" stroke-width="2" stroke-dasharray="6,5"/>
+          <g mask="url(#vchTicketMask)" opacity="0.5" transform="translate(545,18) scale(1.6)">
+            <polygon points="24,4 44,14 24,24 4,14" fill="url(#vch-cubeTop)"/>
+            <polygon points="4,14 24,24 24,44 4,34" fill="url(#vch-cubeLeft)"/>
+            <polygon points="44,14 24,24 24,44 44,34" fill="url(#vch-cubeRight)"/>
+            <circle cx="24" cy="24" r="3.5" fill="url(#vch-accent)"/>
+          </g>
+          <text x="75" y="130" fill="#ffffff" font-size="30" font-weight="900" letter-spacing="4" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 75 130)">KUPON</text>
+          <text id="vchPrevAmount" x="168" y="118" fill="#f39a1f" font-size="52" font-weight="900" font-style="italic">Rp. 10.000,-</text>
+          <g>
+            <path d="M168,140 h215 l-10,14 10,14 h-215 l10,-14 z" fill="#e53935"/>
+            <circle cx="192" cy="154" r="3" fill="#ffffff"/>
+            <text id="vchPrevRibbon" x="285" y="154" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="1" text-anchor="middle" dominant-baseline="middle">DISKON ONGKIR</text>
+            <circle cx="359" cy="154" r="3" fill="#ffffff"/>
+          </g>
+          <text id="vchPrevTerms" x="275" y="183" fill="#ffffff" opacity="0.85" font-size="11" text-anchor="middle" dominant-baseline="middle">Berlaku untuk pembelian min. Rp100.000</text>
+          <text x="610" y="228" fill="#FDB022" font-size="15" font-weight="700" text-anchor="end" dominant-baseline="middle">S&amp;K</text>
+        </svg>
+      </div>
+
+      <div class="edit-field" style="margin-bottom:14px">
+        <label>Nominal (contoh: Rp. 10.000,-)</label>
+        <input type="text" id="vchAmount" maxlength="20" oninput="updateVoucherPreview()" />
+      </div>
+      <div class="edit-field" style="margin-bottom:14px">
+        <label>Teks Ribbon</label>
+        <input type="text" id="vchRibbon" maxlength="30" oninput="updateVoucherPreview()" />
+      </div>
+      <div class="edit-field" style="margin-bottom:14px">
+        <label>Syarat & Ketentuan (baris kecil di bawah)</label>
+        <input type="text" id="vchTerms" maxlength="80" oninput="updateVoucherPreview()" />
+      </div>
+      <div class="edit-field" style="margin-bottom:18px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="vchActive" style="width:auto" checked /> Aktif (tampil di dashboard seller)
+        </label>
+      </div>
+
+      <div class="credit-box-actions">
+        <button class="btn" onclick="closeVoucherModal()">Batal</button>
+        <button class="btn-save" id="vchSaveBtn" onclick="saveVoucherModal()">💾 Simpan</button>
+      </div>
     </div>
   </div>
 
@@ -2580,7 +2611,7 @@ function switchAdminTab(tab) {
   if (tab === 'model3d' && model3dList.length === 0) loadModel3dList();
   if (tab === 'pesanan' && ordersList.length === 0) loadOrders();
   if (tab === 'pencairan' && payoutList.length === 0) loadPayoutRequests();
-  if (tab === 'broadcast') { loadBroadcastCount(); if (bcHistoryItems.length === 0) loadBroadcastHistory(); loadVoucherSettings(); }
+  if (tab === 'broadcast') { loadBroadcastCount(); if (bcHistoryItems.length === 0) loadBroadcastHistory(); }
   if (tab === 'logakses' && auditLogItems.length === 0) loadAuditLog();
   if (tab !== 'model3d')   { selectedModel3dKeys.clear(); }
   if (tab !== 'pesanan')   { selectedOrderIds.clear(); }
@@ -3554,29 +3585,82 @@ function renderBroadcastHistory() {
   }).join('');
 }
 
-// ── VOUCHER SETTINGS (sub-tab dalam Broadcast) ──
-var voucherSettingsLoaded = false;
+// ── VOUCHERS (sub-tab dalam Broadcast) ──
+var vouchersLoaded = false;
+var voucherItems = [];
+var voucherEditingId = null;
 
 function switchBroadcastSubtab(sub) {
   document.getElementById('bcPaneBroadcast').style.display = sub === 'broadcast' ? 'block' : 'none';
   document.getElementById('bcPaneVoucher').style.display = sub === 'voucher' ? 'block' : 'none';
   document.getElementById('bcSubtabBtnBroadcast').classList.toggle('active', sub === 'broadcast');
   document.getElementById('bcSubtabBtnVoucher').classList.toggle('active', sub === 'voucher');
+  if (sub === 'voucher') loadVouchers();
 }
 
-async function loadVoucherSettings() {
-  if (voucherSettingsLoaded) return;
+async function loadVouchers() {
   try {
-    var res = await db.from('voucher_settings').select('amount_text, ribbon_text, terms_text').eq('id', 1).single();
+    var res = await db.from('vouchers').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
     if (res.error) throw res.error;
-    document.getElementById('vchAmount').value = res.data.amount_text || '';
-    document.getElementById('vchRibbon').value = res.data.ribbon_text || '';
-    document.getElementById('vchTerms').value = res.data.terms_text || '';
-    voucherSettingsLoaded = true;
-    updateVoucherPreview();
+    voucherItems = res.data || [];
+    vouchersLoaded = true;
+    renderVoucherList();
   } catch (e) {
-    toast('Gagal memuat teks voucher: ' + e.message, true);
+    toast('Gagal memuat voucher: ' + e.message, true);
   }
+}
+
+function voucherCardSvg(v) {
+  return '<svg viewBox="0 0 650 260" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">' +
+    '<defs><mask id="vcm' + v.id + '"><rect x="0" y="0" width="650" height="260" fill="#ffffff"/><circle cx="140" cy="0" r="16" fill="#000000"/><circle cx="140" cy="260" r="16" fill="#000000"/></mask></defs>' +
+    '<g mask="url(#vcm' + v.id + ')"><rect x="10" y="10" width="630" height="240" rx="18" fill="#ffffff"/></g>' +
+    '<g mask="url(#vcm' + v.id + ')"><path d="M10,28 a18,18 0 0 1 18,-18 H140 V250 H28 a18,18 0 0 1 -18,-18 Z" fill="#f39a1f"/></g>' +
+    '<g mask="url(#vcm' + v.id + ')"><path d="M140,10 H622 a18,18 0 0 1 18,18 V232 a18,18 0 0 1 -18,18 H140 Z" fill="#0d7676"/></g>' +
+    '<line x1="140" y1="26" x2="140" y2="234" stroke="#f39a1f" stroke-width="2" stroke-dasharray="9,7"/>' +
+    '<text x="75" y="130" fill="#ffffff" font-size="30" font-weight="900" letter-spacing="4" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 75 130)">KUPON</text>' +
+    '<text x="168" y="118" fill="#f39a1f" font-size="52" font-weight="900" font-style="italic">' + esc(v.amount_text) + '</text>' +
+    '<path d="M168,140 h215 l-10,14 10,14 h-215 l10,-14 z" fill="#e53935"/>' +
+    '<text x="285" y="154" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="1" text-anchor="middle" dominant-baseline="middle">' + esc(v.ribbon_text) + '</text>' +
+    '<text x="275" y="183" fill="#ffffff" opacity="0.85" font-size="11" text-anchor="middle" dominant-baseline="middle">' + esc(v.terms_text) + '</text>' +
+    '</svg>';
+}
+
+function renderVoucherList() {
+  var area = document.getElementById('vchListArea');
+  if (voucherItems.length === 0) {
+    area.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">Belum ada voucher. Klik "+ Tambah Voucher" buat bikin yang pertama.</p>';
+    return;
+  }
+  area.innerHTML = voucherItems.map(function(v) {
+    return '<div class="voucher-card' + (v.is_active ? '' : ' inactive') + '">' +
+      voucherCardSvg(v) +
+      '<div class="voucher-card-body">' +
+        '<div class="voucher-card-title">' + esc(v.amount_text) + '</div>' +
+        '<div class="voucher-card-sub">' + esc(v.ribbon_text) + (v.is_active ? '' : ' · nonaktif') + '</div>' +
+      '</div>' +
+      '<div class="voucher-card-actions">' +
+        '<button class="btn-edit-sm" onclick="openVoucherModal(\'' + v.id + '\')">✏️</button>' +
+        '<button class="btn-danger-sm" onclick="deleteVoucher(\'' + v.id + '\')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openVoucherModal(id) {
+  voucherEditingId = id;
+  var v = id ? voucherItems.find(function(x) { return x.id === id; }) : null;
+  document.getElementById('vchModalTitle').textContent = v ? 'Edit Voucher' : 'Tambah Voucher';
+  document.getElementById('vchAmount').value = v ? v.amount_text : 'Rp. 10.000,-';
+  document.getElementById('vchRibbon').value = v ? v.ribbon_text : 'DISKON ONGKIR';
+  document.getElementById('vchTerms').value = v ? v.terms_text : 'Berlaku untuk pembelian min. Rp100.000';
+  document.getElementById('vchActive').checked = v ? v.is_active : true;
+  updateVoucherPreview();
+  document.getElementById('voucherModal').classList.add('show');
+}
+
+function closeVoucherModal() {
+  document.getElementById('voucherModal').classList.remove('show');
+  voucherEditingId = null;
 }
 
 function updateVoucherPreview() {
@@ -3585,26 +3669,45 @@ function updateVoucherPreview() {
   document.getElementById('vchPrevTerms').textContent = document.getElementById('vchTerms').value || '';
 }
 
-async function saveVoucherSettings() {
+async function saveVoucherModal() {
   var amount = document.getElementById('vchAmount').value.trim();
   var ribbon = document.getElementById('vchRibbon').value.trim();
   var terms = document.getElementById('vchTerms').value.trim();
+  var active = document.getElementById('vchActive').checked;
   if (!amount || !ribbon || !terms) { toast('Semua field teks voucher wajib diisi.', true); return; }
 
   var btn = document.getElementById('vchSaveBtn');
   btn.disabled = true;
   btn.textContent = 'Menyimpan...';
   try {
-    var res = await db.from('voucher_settings')
-      .update({ amount_text: amount, ribbon_text: ribbon, terms_text: terms, updated_at: new Date().toISOString() })
-      .eq('id', 1);
+    var payload = { amount_text: amount, ribbon_text: ribbon, terms_text: terms, is_active: active, updated_at: new Date().toISOString() };
+    var res;
+    if (voucherEditingId) {
+      res = await db.from('vouchers').update(payload).eq('id', voucherEditingId);
+    } else {
+      res = await db.from('vouchers').insert(payload);
+    }
     if (res.error) throw res.error;
-    toast('✅ Teks voucher tersimpan!');
+    toast('✅ Voucher tersimpan!');
+    closeVoucherModal();
+    loadVouchers();
   } catch (e) {
     toast('Gagal simpan voucher: ' + e.message, true);
   } finally {
     btn.disabled = false;
-    btn.textContent = '💾 Simpan Voucher';
+    btn.textContent = '💾 Simpan';
+  }
+}
+
+async function deleteVoucher(id) {
+  if (!window.confirm('Hapus voucher ini? Voucher akan langsung hilang dari dashboard seller.')) return;
+  try {
+    var res = await db.from('vouchers').delete().eq('id', id);
+    if (res.error) throw res.error;
+    toast('🗑️ Voucher dihapus.');
+    loadVouchers();
+  } catch (e) {
+    toast('Gagal hapus voucher: ' + e.message, true);
   }
 }
 
