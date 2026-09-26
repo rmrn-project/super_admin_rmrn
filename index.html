@@ -3652,6 +3652,16 @@ async function loadVouchers() {
       v._targetLabel = v.target_user_id ? (targetMap[v.target_user_id] ? (targetMap[v.target_user_id].full_name || targetMap[v.target_user_id].email || v.target_user_id) : v.target_user_id) : null;
     });
 
+    var voucherIds = voucherItems.map(function(v) { return v.id; });
+    var claimCountMap = {};
+    if (voucherIds.length) {
+      var cRes = await db.from('voucher_claims').select('voucher_id').in('voucher_id', voucherIds);
+      if (!cRes.error && cRes.data) {
+        cRes.data.forEach(function(c) { claimCountMap[c.voucher_id] = (claimCountMap[c.voucher_id] || 0) + 1; });
+      }
+    }
+    voucherItems.forEach(function(v) { v._claimCount = claimCountMap[v.id] || 0; });
+
     vouchersLoaded = true;
     renderVoucherList();
   } catch (e) {
@@ -3685,10 +3695,10 @@ function renderVoucherList() {
       voucherCardSvg(v) +
       '<div class="voucher-card-body">' +
         '<div class="voucher-card-title">' + esc(v.amount_text) + '</div>' +
-        '<div class="voucher-card-sub">' + esc(v.ribbon_text) + (v.is_active ? '' : ' · nonaktif') + (v.is_claimed ? ' · sudah diklaim' : '') + (v.is_public ? ' · 🌐 publik' : ' · 🔒 privat: ' + esc(v._targetLabel || '-')) + '</div>' +
+        '<div class="voucher-card-sub">' + esc(v.ribbon_text) + (v.is_active ? '' : ' · nonaktif') + (v._claimCount > 0 ? ' · ' + v._claimCount + ' buyer sudah klaim' : '') + (v.is_public ? ' · 🌐 publik' : ' · 🔒 privat: ' + esc(v._targetLabel || '-')) + '</div>' +
       '</div>' +
       '<div class="voucher-card-actions">' +
-        (v.is_claimed ? '<button class="btn-edit-sm" onclick="resetVoucherClaim(\'' + v.id + '\')">↺ Reset</button>' : '') +
+        (v._claimCount > 0 ? '<button class="btn-edit-sm" onclick="resetVoucherClaim(\'' + v.id + '\', ' + v._claimCount + ')">↺ Reset (' + v._claimCount + ')</button>' : '') +
         '<button class="btn-edit-sm" onclick="openVoucherModal(\'' + v.id + '\')">✏️</button>' +
         '<button class="btn-danger-sm" onclick="deleteVoucher(\'' + v.id + '\')">🗑️</button>' +
       '</div>' +
@@ -3824,10 +3834,10 @@ async function deleteVoucher(id) {
   }
 }
 
-async function resetVoucherClaim(id) {
-  if (!window.confirm('Reset status klaim voucher ini? Voucher akan bisa diklaim lagi oleh buyer.')) return;
+async function resetVoucherClaim(id, count) {
+  if (!window.confirm('Reset klaim voucher ini? ' + count + ' buyer yang udah klaim bakal bisa klaim lagi.')) return;
   try {
-    var res = await db.from('vouchers').update({ is_claimed: false }).eq('id', id);
+    var res = await db.from('voucher_claims').delete().eq('voucher_id', id);
     if (res.error) throw res.error;
     toast('↺ Klaim direset.');
     loadVouchers();
